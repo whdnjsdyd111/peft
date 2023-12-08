@@ -91,8 +91,8 @@ if __name__ == "__main__":
         + f"distributed training: {training_args.parallel_mode.value == 'distributed'}, 16-bits training: {training_args.fp16}"
     )
     logger.info(f"{colorstr('bright_yellow', 'bold', 'Training/evaluation parameters')} {training_args}")
-    logger.info(f"{colorstr('bright_yellow', 'bold', '\n\nData Parameter')} {data_args}")
-    logger.info(f"{colorstr('bright_yellow', 'bold', '\n\nModel parameters')} {model_args}")
+    logger.info(f"\n\n{colorstr('bright_yellow', 'bold', 'Data Parameter')} {data_args}")
+    logger.info(f"\n\n{colorstr('bright_yellow', 'bold', 'Model parameters')} {model_args}")
 
     if not os.path.isdir(training_args.output_dir) or not os.path.exists(training_args.output_dir):
         os.mkdir(training_args.output_dir)
