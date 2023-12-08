@@ -1,4 +1,5 @@
 import abc
+from abc import abstractmethod
 import logging
 import numpy as np
 
@@ -28,6 +29,10 @@ class AbstractDataset(abc.ABC):
     preprocessor: Callable = NotImplemented
     prefix = NotImplemented
     metric = NotImplemented
+    
+    train_dataset = NotImplemented
+    eval_dataset = NotImplemented
+    predict_dataset = NotImplemented
     
     labels_list = None
     num_labels = None
@@ -119,6 +124,15 @@ class AbstractDataset(abc.ABC):
             num_proc=self.data_args.preprocessing_num_workers,
             remove_columns=self.column_names,
         )
+    
+    @abstractmethod
+    def split_dataset(self):
+        # Split Dataset train, evaluate, pedict
+        pass
+    
+    @abstractmethod
+    def set_metrics(self):
+        pass
     
     # Preprocessing tokenize datasets
     def encoder_preprocess_function(self, examples):
