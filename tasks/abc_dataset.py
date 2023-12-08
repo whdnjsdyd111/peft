@@ -1,6 +1,7 @@
 import abc
 from abc import abstractmethod
 import logging
+import functools
 import numpy as np
 
 from typing import Callable, List, Mapping
@@ -10,6 +11,7 @@ from transformers import (
     DataCollatorWithPadding,
     EvalPrediction
 )
+import torch
 from datasets import load_dataset
 
 logger = logging.getLogger(__name__)

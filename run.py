@@ -18,7 +18,7 @@ os.environ["WANDB_PROJECT"] = "peft"
 logging = logging.getLogger(__name__)
 
 
-def train(trainer, resum_from_checkpoint=None, last_checkpoint=None):
+def train(trainer, resume_from_checkpoint=None, last_checkpoint=None):
     logger.info(colorstr('bright_blue', 'bold', '*** Train Start ***'))
     
     checkpoint = None
@@ -94,8 +94,8 @@ if __name__ == "__main__":
     logger.info(f"\n\n{colorstr('bright_yellow', 'bold', 'Data Parameter')} {data_args}")
     logger.info(f"\n\n{colorstr('bright_yellow', 'bold', 'Model parameters')} {model_args}")
 
-    if not os.path.isdir(training_args.output_dir) or not os.path.exists(training_args.output_dir):
-        os.mkdir(training_args.output_dir)
+    if not os.path.isdir("checkpoints") or not os.path.exists("checkpoints"):
+        os.mkdir("checkpoints")
     
     if data_args.task_name.lower() == "glue":
         assert data_args.dataset_name.lower() in GLUE_DATASETS

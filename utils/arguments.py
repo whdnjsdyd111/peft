@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Optional, Union, List
 
 from transformers import HfArgumentParser, TrainingArguments, Seq2SeqTrainingArguments
-# from peft import PeftType, PromptTuningInit, PromptEncoderReparameterizationType
+from peft import PeftType, PromptTuningInit, PromptEncoderReparameterizationType
 
 from tasks.utils import *
 

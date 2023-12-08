@@ -1,4 +1,9 @@
+import logging
+import functools
+
 from enum import Enum
+
+from utils.general import colorstr, colorformat, emojis
 
 from transformers import (
     AutoTokenizer,
@@ -49,6 +54,8 @@ AUTO_PEFT = {
     PeftType.PREFIX_TUNING: PrefixTuningConfig,
     PeftType.PROMPT_TUNING: PromptTuningConfig,
 }
+
+logger = logging.getLogger(__name__)
 
 
 def get_model(model_args, peft_args, task_type: TaskType):

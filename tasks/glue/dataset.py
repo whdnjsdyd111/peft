@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 class GlueDataset(AbstractDataset):
     def __init__(self, data_args, model_args, training_args, tokenizer):
-        super().__init__(data_args, model_args, training_args)
+        super().__init__(data_args, model_args, training_args, tokenizer)
         
         # labels
         self.is_regression = data_args.dataset_name == "stsb"
@@ -96,26 +96,26 @@ class GlueDataset(AbstractDataset):
     
     def split_dataset(self):
         # Training
-        if training_args.do_train:
+        if self.training_args.do_train:
             self.train_dataset = self.tokenized_dataset['train']
-            if data_args.max_train_samples is not None:
-                self.train_dataset = self.train_dataset.select(range(data_args.max_train_samples))
+            if self.data_args.max_train_samples is not None:
+                self.train_dataset = self.train_dataset.select(range(self.data_args.max_train_samples))
         
         # Evaluation
-        if training_args.do_eval:
-            self.eval_dataset = self.tokenized_dataset['validation_matched' if data_args.dataset_name == "mnli" else "validation"]
-            if data_args.max_eval_samples is not None:
-                self.eval_dataset = self.eval_dataset.select(range(data_args.max_eval_samples))
+        if self.training_args.do_eval:
+            self.eval_dataset = self.tokenized_dataset['validation_matched' if self.data_args.dataset_name == "mnli" else "validation"]
+            if self.data_args.max_eval_samples is not None:
+                self.eval_dataset = self.eval_dataset.select(range(self.data_args.max_eval_samples))
         
         # Prediction
-        if training_args.do_predict or data_args.dataset_name is not None or data_args.test_file is not None:
-            self.predict_dataset = self.tokenized_dataset['test_matched' if data_args.dataset_name == 'mnli' else 'test']
-            if data_args.max_predict_samples is not None:
-                self.predict_dataset = self.predict_dataset.select(range(data_args.max_predict_samples))
+        if self.training_args.do_predict or self.data_args.dataset_name is not None or self.data_args.test_file is not None:
+            self.predict_dataset = self.tokenized_dataset['test_matched' if self.data_args.dataset_name == 'mnli' else 'test']
+            if self.data_args.max_predict_samples is not None:
+                self.predict_dataset = self.predict_dataset.select(range(self.data_args.max_predict_samples))
 
     def set_metrics(self):
-        if data_args.dataset_name is not None:
-            self.metric = evaluate.load("glue", data_args.dataset_name)
+        if self.data_args.dataset_name is not None:
+            self.metric = evaluate.load("glue", self.data_args.dataset_name)
         elif self.is_regression:
             self.metric = evaluate.load("mse")
         else:
