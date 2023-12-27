@@ -159,6 +159,20 @@ class ModelArguments:
 
 
 @dataclass
+class DynamicTrainingArguments(Seq2SeqTrainingArguments):
+    predict_with_generate: bool = field(
+        default=True,
+        metadata={"help": "Whether to use generate to get the predictions."}
+    )
+    generation_max_length: Optional[int] = field(
+        default=20,
+        metadata={
+            "help": "The maximum total sequence length for target text after tokenization. Sequences longer "
+            "than this will be truncated, sequences shorter will be padded."
+        },
+    )
+
+@dataclass
 class DynamicPeftArguments:
     peft_type: Optional[PeftType] = field(
         default=None,
@@ -405,7 +419,7 @@ class DynamicPeftArguments:
 
 def get_args():
     """Parse all the args."""
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, Seq2SeqTrainingArguments, DynamicPeftArguments))
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, DynamicTrainingArguments, DynamicPeftArguments))
     
     args = parser.parse_args_into_dataclasses()
     

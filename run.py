@@ -14,8 +14,9 @@ from utils.general import colorstr, colorformat, emojis
 from tasks.utils import *
 
 os.environ["WANDB_PROJECT"] = "peft"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-logging = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def train(trainer, resume_from_checkpoint=None, last_checkpoint=None):
@@ -72,14 +73,16 @@ if __name__ == "__main__":
     
     model_args, data_args, training_args, peft_args = args
     
+    
     logging.basicConfig(
+        level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",
         handlers=[logging.StreamHandler(sys.stdout)],
     )
     
     log_level = training_args.get_process_log_level()
-    logger.setLevel(log_level)
+    # logger.setLevel(log_level)
     datasets.utils.logging.set_verbosity(log_level)
     transformers.utils.logging.set_verbosity(log_level)
     transformers.utils.logging.enable_default_handler()

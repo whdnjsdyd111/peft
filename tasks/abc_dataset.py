@@ -153,7 +153,7 @@ class AbstractDataset(abc.ABC):
                                       padding=self.padding,
                                       truncation=True)
         # Setup the tokenizer for targets
-        with tokenizer.as_target_tokenizer():
+        with self.tokenizer.as_target_tokenizer():
             labels = self.tokenizer(examples['target'],
                                     max_length=self.max_target_length,
                                     padding=self.padding,

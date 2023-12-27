@@ -67,6 +67,9 @@ def get_model(model_args, peft_args, task_type: TaskType):
         revision=model_args.model_revision,
     )
     
+    all_param = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    logger.info(f"***** {colorstr('bright_yellow', 'bold', 'orig total param')} is {colorstr('bright_yellow', 'bold', f'{all_param}')} *****")
+    
     if peft_args.peft_type is not None:
         # Mapping peft config
         peft_class = AUTO_PEFT[peft_args.peft_type]
@@ -82,11 +85,11 @@ def get_model(model_args, peft_args, task_type: TaskType):
         peft_config = peft_class(task_type=task_type, **peft_dict)
         logger.info(f"{colorstr('bright_yellow', 'bold', 'Peft parameters')} {peft_config}")
         model = get_peft_model(model, peft_config)
-    
-    all_param = 0
-    for _, param in model.named_parameters():
-        all_param += param.numel()
-    logger.info(f"***** {colorstr('bright_yellow', 'bold', 'total param')} is {colorstr('bright_yellow', 'bold', f'{all_param}')} *****")
+        
+        peft_param = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        logger.info(f"***** {colorstr('bright_yellow', 'bold', 'peft total param')} is {colorstr('bright_yellow', 'bold', f'{peft_param}')} *****")
+        
+        model.print_trainable_parameters()
     
     return model
 

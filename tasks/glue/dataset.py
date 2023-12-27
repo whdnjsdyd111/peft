@@ -85,10 +85,11 @@ class GlueDataset(AbstractDataset):
         return np.round((label * 5) / 5, decimals=1)
     
     def preprocessor(self, example, add_prefix=True):
-        src_texts = [self.sentence1_key + ": ", example[self.sentence1_key]]
-        if self.sentence2_key is not None:
-            src_texts.append(self.sentence2_key + ": ")
-            src_texts.append(example[self.sentence2_key])
+        if self.sentence2_key is None:
+            src_texts = [self.sentence1_key + ":", example[self.sentence1_key]]
+        else:
+            src_texts = [self.sentence1_key + ":", example[self.sentence1_key],
+                         self.sentence2_key + ":", example[self.sentence2_key]]
         
         tgt_texts = [str(example['label']) if not self.is_regression 
                      else str(self.round_stsb_target(example['label']))]

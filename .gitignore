@@ -1,2 +1,5 @@
 # result
 /checkpoints
+/wandb
+
+__pycache__
