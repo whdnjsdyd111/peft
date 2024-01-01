@@ -130,11 +130,11 @@ class AbstractDataset(abc.ABC):
     @abstractmethod
     def split_dataset(self):
         # Split Dataset train, evaluate, pedict
-        pass
+        ...
     
     @abstractmethod
     def set_metrics(self):
-        pass
+        ...
     
     # Preprocessing tokenize datasets
     def encoder_preprocess_function(self, examples):
