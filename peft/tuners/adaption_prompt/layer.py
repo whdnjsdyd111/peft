@@ -12,62 +12,109 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from collections import namedtuple
-from dataclasses import dataclass, field
+import math
 
-from peft.config import PeftConfig
-from peft.utils import PeftType
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
-from .utils import llama_compute_query_states
-
-
-@dataclass
-class AdaptionPromptConfig(PeftConfig):
-    """Stores the configuration of an [`AdaptionPromptModel`]."""
-    target_modules: str = field(
-        default=None, metadata={"help": "Name of the attention submodules to insert adaption prompts into."}
-    )
-    adapter_len: int = field(default=None, metadata={"help": "Number of adapter tokens to insert"})
-    adapter_layers: int = field(default=None, metadata={"help": "Number of adapter layers (from the top)"})
-
-    def __post_init__(self):
-        self.peft_type = PeftType.ADAPTION_PROMPT
-
-    @property
-    def is_adaption_prompt(self) -> bool:
-        """Return True if this is an adaption prompt config."""
-        return True
+from .config import TRANSFORMERS_MODEL_CONFIG
 
 
-# Contains the config that is specific to a transformers model type.
-ModelTypeConfig = namedtuple(
-    "ModelTypeConfig", ["compute_query_states", "target_modules", "k_proj_layer", "v_proj_layer", "o_proj_layer"]
-)
+class AdaptedAttention(nn.Module):
+    """This module wraps a LLamaAttention module and injects adaption prompts."""
 
+    def __init__(self, model_type: str, adapter_len: int, model):
+        """
+        Initialize object.
 
-# Mapping of transformers model types to their specific configuration.
-TRANSFORMERS_MODEL_CONFIG = {
-    "llama": ModelTypeConfig(
-        compute_query_states=llama_compute_query_states,
-        target_modules="self_attn",
-        k_proj_layer="k_proj",
-        v_proj_layer="v_proj",
-        o_proj_layer="o_proj",
-    ),
-}
+        Args:
+            model_type: The transformer model type. This is used to retrieve the right method to
+                compute query states.
+            adapter_len: The length of the adaption prompt to insert.
+            model: The original transformer attention module that is being wrapped.
+        """
+        assert not isinstance(model, AdaptedAttention)
+        super().__init__()
+        self.model_type = model_type
+        self.model = model
+        self.adapter_len = adapter_len
+        # Assume all parameters of the attention model we are wrapping are on the same device.
+        device = next(model.parameters()).device
+        # Don't think this was specified in the paper, but we follow the official repo which used an Embedding
+        # which initializes the tokens with standard normal values.
+        # https://github.com/ZrrSkywalker/LLaMA-Adapter/blob/41c3546fe1997ab8a65809dc8d8f9252b19d9faf/llama/model.py#L234
+        # (bsz, adapter_len, hidden_size)
+        target_dtype = (
+            model.q_proj.weight.dtype if model.q_proj.weight.dtype not in [torch.int8, torch.uint8] else torch.float32
+        )
+        self.adaption_prompt = nn.Parameter(
+            torch.empty(1, adapter_len, self.model.hidden_size, device=device, dtype=target_dtype).normal_()
+        )
+        # Initialize the gate to 0 as this is "zero-init".
+        self.adaption_gate = nn.Parameter(torch.zeros(1, device=device, dtype=target_dtype))
 
+    def forward(self, **kwargs):
+        """
+        Forward pass for the adapter which wraps the original LlamaAttention module.
 
-def prepare_config(
-    peft_config: AdaptionPromptConfig,
-    model,
-) -> AdaptionPromptConfig:
-    """Prepare the config based on the llama model type."""
-    if model.config.model_type not in TRANSFORMERS_MODEL_CONFIG:
-        raise ValueError("Unsupported model type for adaption prompt: '{model.config.model_type}'.")
+        "Official" paper implementation:
+        https://github.com/ZrrSkywalker/LLaMA-Adapter/blob/41c3546fe1997ab8a65809dc8d8f9252b19d9faf/llama/model.py#L141
 
-    model_config = TRANSFORMERS_MODEL_CONFIG[model.config.model_type]
+        Args:
+            kwargs: See the original LlamaAttention module.
+        """
+        if kwargs.get("output_attention", False):
+            raise NotImplementedError("output_attention is not currently supported.")
 
-    if peft_config.target_modules is None:
-        peft_config.target_modules = model_config.target_modules
+        output, _, past_key_value = self.model(**kwargs)
+        bsz = output.shape[0]
+        q_len = output.shape[1]
+        embed_dim = output.shape[2]
+        k_proj_layer = TRANSFORMERS_MODEL_CONFIG[self.model_type].k_proj_layer
+        v_proj_layer = TRANSFORMERS_MODEL_CONFIG[self.model_type].v_proj_layer
+        o_proj_layer = TRANSFORMERS_MODEL_CONFIG[self.model_type].o_proj_layer
 
-    return peft_config
+        if k_proj_layer == v_proj_layer:
+            _, key, value = getattr(self.model, k_proj_layer)(self.adaption_prompt).split(embed_dim, dim=2)
+        else:
+            key = getattr(self.model, k_proj_layer)(self.adaption_prompt)
+            value = getattr(self.model, v_proj_layer)(self.adaption_prompt)
+        # (bsz, num_heads, adapter_len, head_dim)
+        adapter_k = (
+            key.view(1, self.adapter_len, self.model.num_heads, self.model.head_dim)
+            .repeat(bsz, 1, 1, 1)
+            .transpose(1, 2)
+        )
+        # (bsz, num_heads, adapter_len, head_dim)
+        adapter_v = (
+            value.view(1, self.adapter_len, self.model.num_heads, self.model.head_dim)
+            .repeat(bsz, 1, 1, 1)
+            .transpose(1, 2)
+        )
+
+        # Recompute query states.
+        compute_query_states = TRANSFORMERS_MODEL_CONFIG[self.model_type].compute_query_states
+        # (bsz, num_heads, q_len, head_dim)
+        query_states = compute_query_states(model=self.model, **kwargs)
+
+        previous_dtype = query_states.dtype
+        # (bsz, num_heads, q_len, adapter_len)
+        scores = torch.matmul(query_states, adapter_k.transpose(2, 3).to(previous_dtype)) / math.sqrt(
+            self.model.head_dim
+        )
+        # Upcast attention to fp32
+        # (bsz, num_heads, q_len, adapter_len)
+        scores = self.adaption_gate * F.softmax(scores, dim=-1, dtype=torch.float32).to(previous_dtype)
+        # (bsz, q_len, num_heads * head_dim)
+        adapter_output = torch.matmul(scores, adapter_v).transpose(1, 2).reshape(bsz, q_len, -1)
+        # (bsz, q_len, hidden_size)
+        if o_proj_layer is not None:
+            adapter_output = getattr(self.model, o_proj_layer)(adapter_output)
+
+        # Add adaption prompt output to original output.
+        output = output + adapter_output
+
+        # Restore original dtype.
+        output = output.to(previous_dtype)
+        return output, None, past_key_value

@@ -26,6 +26,7 @@ from itertools import chain
 from typing import List, Optional
 
 import torch
+import torch.nn as nn
 from tqdm import tqdm
 from transformers.pytorch_utils import Conv1D
 

@@ -12,151 +12,62 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from collections import namedtuple
+from dataclasses import dataclass, field
 
-from typing import Dict, List
+from peft.config import PeftConfig
+from peft.utils import PeftType
 
-import torch.nn as nn
-
-from peft.utils import _freeze_adapter, _get_submodules
-
-from .config import AdaptionPromptConfig, prepare_config
-from .layer import AdaptedAttention
-from .utils import is_adaption_prompt_trainable
+from .utils import llama_compute_query_states
 
 
-class AdaptionPromptModel(nn.Module):
-    """
-    Implements adaption prompts as described in https://arxiv.org/pdf/2303.16199.pdf.
+@dataclass
+class AdaptionPromptConfig(PeftConfig):
+    """Stores the configuration of an [`AdaptionPromptModel`]."""
 
-    The top L attention modules are replaced with AdaptedAttention modules that wrap the original ones, but insert
-    trainable prompts with gates (for zero init).
+    target_modules: str = field(
+        default=None, metadata={"help": "Name of the attention submodules to insert adaption prompts into."}
+    )
+    adapter_len: int = field(default=None, metadata={"help": "Number of adapter tokens to insert"})
+    adapter_layers: int = field(default=None, metadata={"help": "Number of adapter layers (from the top)"})
 
-    Notes on the multi-adapter pattern:
-    - We store the states of different adapters by keeping a dictionary of AdaptedAttention modules indexed by adapter
-      name.
-    - Every time we switch adapters, we remove the modules of the currently active adapter from the model, store them
-      in the dictionary, and replace them with the modules of the new adapter.
-    - To avoid duplicated and potentially inconsistent state, the currently active adapter is always removed from the
-      dictionary.
-    - Disabling the adapter would also result in the modules being removed from the model.
-    """
+    def __post_init__(self):
+        self.peft_type = PeftType.ADAPTION_PROMPT
 
-    def __init__(self, model, configs: Dict, adapter_name: str):
-        super().__init__()
-        self.model = model
-        # Store adapter configs by name.
-        self.peft_config: Dict[str, AdaptionPromptConfig] = {}
-        # Store lists of the parents of the affected attention modules by adapter name.
-        # We keep references to the parents so we can swap the adapters in-and-out of the model.
-        self._parents: Dict[str, List[nn.Module]] = {}
-        # Store lists of cached AdaptedAttention modules by name.
-        self._cached_adapters: Dict[str, List] = {}
-        # The name of the currently active adapter.
-        self._active_adapter = None
-        # Whether the adapter is enabled.
-        self._enabled = True
-        self.forward = self.model.forward
-        self.add_adapter(adapter_name, configs[adapter_name])
-        self._mark_only_adaption_prompts_as_trainable()
+    @property
+    def is_adaption_prompt(self) -> bool:
+        """Return True if this is an adaption prompt config."""
+        return True
 
-    def add_adapter(self, adapter_name: str, config: AdaptionPromptConfig) -> None:
-        """Add an adapter with the given name and config."""
-        config = prepare_config(config, self.model)
-        if adapter_name in self.peft_config:
-            raise ValueError(f"Adapter with name '{adapter_name}' already exists.")
 
-        parents = []
-        for name, _ in self.model.named_modules():
-            if name.endswith(config.target_modules):
-                par, _, _ = _get_submodules(self.model, name)
-                parents.append(par)
-        if len(parents) < config.adapter_layers:
-            raise ValueError(
-                f"Config specifies more adapter layers '{config.adapter_layers}'"
-                f" than the model has '{len(parents)}'."
-            )
-        # Note that if the target modules are not in Sequential, ModuleList, or
-        # some other PyTorch ordered container, the behavior is undefined as we
-        # assume here that the order of the modules is the same as the order of
-        # the transformer decoder layers.
-        parents = parents[-config.adapter_layers :]
-        self._parents[adapter_name] = parents
+# Contains the config that is specific to a transformers model type.
+ModelTypeConfig = namedtuple(
+    "ModelTypeConfig", ["compute_query_states", "target_modules", "k_proj_layer", "v_proj_layer", "o_proj_layer"]
+)
 
-        # It is only None during initialization.
-        # If it is disabled, we don't have to remove the modules.
-        if self._active_adapter is not None and self._enabled:
-            self._remove_adapted_attentions(self._active_adapter)
-        self._active_adapter = adapter_name
-        self.peft_config[adapter_name] = config
-        self._create_adapted_attentions(config, parents)
-        if not self._enabled:
-            self._remove_adapted_attentions(self._active_adapter)
+# Mapping of transformers model types to their specific configuration.
+TRANSFORMERS_MODEL_CONFIG = {
+    "llama": ModelTypeConfig(
+        compute_query_states=llama_compute_query_states,
+        target_modules="self_attn",
+        k_proj_layer="k_proj",
+        v_proj_layer="v_proj",
+        o_proj_layer="o_proj",
+    ),
+}
 
-        if config.inference_mode:
-            _freeze_adapter(self.model, adapter_name)
 
-    def set_adapter(self, adapter_name: str) -> None:
-        """Set the model to use the adapter with the given name."""
-        if self._active_adapter == adapter_name:
-            return
-        if adapter_name not in self.peft_config:
-            raise ValueError(f"Adapter with name '{adapter_name}' does not exist.")
+def prepare_config(
+    peft_config: AdaptionPromptConfig,
+    model,
+) -> AdaptionPromptConfig:
+    """Prepare the config based on the llama model type."""
+    if model.config.model_type not in TRANSFORMERS_MODEL_CONFIG:
+        raise ValueError("Unsupported model type for adaption prompt: '{model.config.model_type}'.")
 
-        if self._enabled:
-            self._remove_adapted_attentions(self._active_adapter)
-            self._set_adapted_attentions(adapter_name)
+    model_config = TRANSFORMERS_MODEL_CONFIG[model.config.model_type]
 
-        self._active_adapter = adapter_name
+    if peft_config.target_modules is None:
+        peft_config.target_modules = model_config.target_modules
 
-    def enable_adapter_layers(self):
-        """Enable adapter layers by swapping in cached AdaptedAttention modules."""
-        self._enabled = True
-        self._set_adapted_attentions(self._active_adapter)
-
-    def disable_adapter_layers(self):
-        """Disable adapter layers by swapping out AdaptedAttention modules."""
-        self._enabled = False
-        self._remove_adapted_attentions(self._active_adapter)
-
-    def _create_adapted_attentions(self, config: AdaptionPromptConfig, parents: List[nn.Module]) -> None:
-        """Wrap LlamaAttention modules with newly created AdaptedAttention modules."""
-        for par in parents:
-            attn = AdaptedAttention(
-                model_type=self.model.config.model_type,
-                adapter_len=config.adapter_len,
-                model=getattr(par, config.target_modules),
-            )
-            setattr(par, config.target_modules, attn)
-
-    def _set_adapted_attentions(self, adapter_name: str) -> None:
-        """Replace LlamaAttention modules with cached AdaptedAttention modules."""
-        cached = self._cached_adapters[adapter_name]
-        del self._cached_adapters[adapter_name]
-        config = self.peft_config[adapter_name]
-        for i, par in enumerate(self._parents[adapter_name]):
-            setattr(par, config.target_modules, cached[i])
-
-    def _remove_adapted_attentions(self, adapter_name: str) -> None:
-        """Remove AdaptedAttention modules from the model and store them in the cache."""
-        config = self.peft_config[adapter_name]
-        adapted_attentions = []
-        for par in self._parents[adapter_name]:
-            attn = getattr(par, config.target_modules)
-            adapted_attentions.append(attn)
-            setattr(par, config.target_modules, attn.model)
-        self._cached_adapters[adapter_name] = adapted_attentions
-
-    def _mark_only_adaption_prompts_as_trainable(self) -> None:
-        """Freeze all parameters of the model except the adaption prompts."""
-        for n, p in self.model.named_parameters():
-            if not is_adaption_prompt_trainable(n):
-                p.requires_grad = False
-
-    def __getattr__(self, name: str):
-        """Forward missing attributes to the wrapped module."""
-        try:
-            return super().__getattr__(name)  # defer to nn.Module's logic
-        except AttributeError:
-            # This is necessary as e.g. causal models have various methods that we
-            # don't want to re-implement here.
-            return getattr(self.model, name)
+    return peft_config

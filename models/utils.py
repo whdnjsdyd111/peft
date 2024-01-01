@@ -10,7 +10,6 @@ from transformers import (
     Trainer,
     Seq2SeqTrainer,
     DataCollatorForSeq2Seq,
-
     AutoModelForSequenceClassification,
     AutoModelForSeq2SeqLM,
     AutoModelForCausalLM,
@@ -30,7 +29,6 @@ from peft import (
 from peft import (
     AdaLoraConfig,
     AdaptionPromptConfig,
-    IA3Config,
     LoraConfig,
     PromptEncoderConfig,
     PrefixTuningConfig,
@@ -48,7 +46,6 @@ AUTO_MODEL = {
 AUTO_PEFT = {
     PeftType.ADALORA: AdaLoraConfig,
     PeftType.ADAPTION_PROMPT: AdaptionPromptConfig,
-    PeftType.IA3: IA3Config,
     PeftType.LORA: LoraConfig,
     PeftType.P_TUNING: PromptEncoderConfig,
     PeftType.PREFIX_TUNING: PrefixTuningConfig,

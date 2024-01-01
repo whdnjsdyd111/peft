@@ -36,10 +36,10 @@ class LoraLayer:
     _disable_adapters: bool = False
 
     # the currently active adapter(s)
-    _active_adapter: str | list[str] = "default"
+    _active_adapter: Union[str, List[str]] = "default"
 
     # List all merged adapters
-    merged_adapters: list[str] = []
+    merged_adapters: Union[List[str]] = []
     
     def __init__(self, base_layer: nn.Module, **kwargs):
         self.base_layer = base_layer
@@ -92,7 +92,7 @@ class LoraLayer:
             base_layer = base_layer.base_layer
         return base_layer
     
-    def set_adapter(self, adapter_names: str | list[str]) -> None:
+    def set_adapter(self, adapter_names: Union[str, List[str]]) -> None:
         """Set the active adapter(s).
 
         Args:
