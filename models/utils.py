@@ -122,6 +122,7 @@ def get_trainer(model_args, data_args, training_args, peft_args, Dataset):
     elif any(x in model_args.model_name_or_path for x in ["gpt"]): # TODO : add 라마 추가하기
         logger.info(f"Loading decoder model from {model_args.model_name_or_path}.")
         task_type = TaskType.CAUSAL_LM
+        training_args.generation_max_length = dataset.max_seq_length + training_args.generation_max_length
         model = get_model(model_args, peft_args, task_type)
     else:
         raise NotImplementedError

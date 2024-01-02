@@ -53,8 +53,8 @@ class LoraLayer:
         self.lora_embedding_A = nn.ParameterDict({})
         self.lora_embedding_B = nn.ParameterDict({})
         # Mark the weight as unmerged
-        self.merged = False
-        self.disable_adapters = False
+        self._disable_adapters = False
+        self.merged_adapters = []
         self.kwargs = kwargs
         
         base_layer = self.get_base_layer()
@@ -270,7 +270,7 @@ class LoraLayer:
         return self.active_adapter
 
 
-class Linear(nn.Linear, LoraLayer):
+class Linear(nn.Module, LoraLayer):
     # Lora implemented in a dense layer
     def __init__(
         self,

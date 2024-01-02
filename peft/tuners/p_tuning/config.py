@@ -45,7 +45,7 @@ class PromptEncoderConfig(PromptLearningConfig):
         default=None,
         metadata={"help": "The hidden size of the prompt encoder"},
     )
-    encoder_num_layer: int = field(
+    encoder_num_layers: int = field(
         default=2,
         metadata={"help": "The number of layers of the prompt encoder"},
     )
