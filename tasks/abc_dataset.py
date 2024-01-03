@@ -1,5 +1,4 @@
-import abc
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 import logging
 import functools
 import numpy as np
@@ -17,7 +16,7 @@ from datasets import load_dataset
 logger = logging.getLogger(__name__)
 
 
-class AbstractDataset(abc.ABC):
+class AbstractDataset(ABC):
     task = NotImplemented
     name = NotImplemented
     data_args = NotImplemented
@@ -99,7 +98,7 @@ class AbstractDataset(abc.ABC):
                 'task': self.name}
     
     def preprocess_dataset(self):
-        return self.raw_datasets.map(
+        self.processed_dataset = self.raw_datasets.map(
             functools.partial(self.preprocessor, add_prefix=self.data_args.add_prefix),
             remove_columns=self.raw_datasets['train'].column_names
         )
@@ -120,12 +119,17 @@ class AbstractDataset(abc.ABC):
         else:
             raise NotImplementedError
         
-        return self.processed_dataset.map(
+        self.tokenized_dataset = self.processed_dataset.map(
             functools.partial(tokenize_function),
             batched=True,
             num_proc=self.data_args.preprocessing_num_workers,
             remove_columns=self.column_names,
         )
+    
+    @abstractmethod
+    def preprocess_k_shot_dataset(self):
+        # Preprocess for k-shot learning after preprocess_dataset
+        ...
     
     @abstractmethod
     def split_dataset(self):

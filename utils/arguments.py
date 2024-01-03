@@ -122,6 +122,12 @@ class DataTrainingArguments:
         default=0,
         metadata={"help": "The specific prompt string to use"}
     )
+    k_shot_example: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": "The number of examples to use for the k-shot learning."
+        }
+    )
 
 
 @dataclass

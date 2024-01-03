@@ -58,10 +58,13 @@ class GlueDataset(AbstractDataset):
                         f"{self.raw_datasets['train'][0]['label'] if self.is_regression else self.id2label[self.raw_datasets['train'][0]['label']]}"  
                         )
         # Preprocess format
-        self.processed_dataset = self.preprocess_dataset()
+        self.preprocess_dataset()
+        
+        if data_args.k_shot_example is not None:
+            self.preprocess_k_shot_dataset()
         
         # Tokenize
-        self.tokenized_dataset = self.tokenize_dataset()
+        self.tokenize_dataset()
         
         # Split Dataset
         self.split_dataset()
@@ -94,6 +97,35 @@ class GlueDataset(AbstractDataset):
         tgt_texts = [str(example['label']) if not self.is_regression 
                      else str(self.round_stsb_target(example['label']))]
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+    
+    def preprocess_k_shot_dataset(self):
+        class_num_dct = {}
+        
+        if not self.is_regression:
+            for _, value in enumerate(self.label2id.values()):
+                class_num_dct[str(value)] = 0
+        else:
+            class_num_dct = {
+                "0": 0,
+                "1": 0,
+            }
+        
+        num_example_per_class = self.data_args.k_shot_example // len(class_num_dct)
+        shuffled_train_dataset = self.processed_dataset["train"].shuffle(seed=self.training_args.seed)
+        index_lst = []
+        
+        for i, data in enumerate(self.processed_dataset["train"]):
+            if sum(class_num_dct.values()) == self.data_args.k_shot_example:
+                break
+            
+            label = data["target"]
+            if self.data_args.task_name == "stsb":
+                label = "0" if float(label) <= 2.5 else "1"
+            if class_num_dct[label] < num_example_per_class or sum(class_num_dct.values()) == self.data_args.k_shot_example - 1:
+                class_num_dct[label] += 1
+                index_lst.append(i)
+        
+        self.processed_dataset["train"] = shuffled_train_dataset.select(index_lst)
     
     def split_dataset(self):
         # Training
