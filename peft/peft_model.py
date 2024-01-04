@@ -1247,6 +1247,32 @@ class PeftModelForSeq2SeqLM(PeftModel):
                 return_dict=return_dict,
                 **kwargs,
             )
+            
+        batch_size = _get_batch_size(input_ids, inputs_embeds)
+        if decoder_attention_mask is not None:
+            # concat prompt attention mask
+            prefix_attention_mask = torch.ones(batch_size, peft_config.num_virtual_tokens).to(
+                decoder_attention_mask.device
+            )
+            if peft_config.peft_type not in [PeftType.PROMPT_TUNING, PeftType.P_TUNING]:
+                decoder_attention_mask = torch.cat((prefix_attention_mask, decoder_attention_mask), dim=1)
+
+        if kwargs.get("position_ids", None) is not None:
+            warnings.warn("Position ids are not supported for parameter efficient tuning. Ignoring position ids.")
+            kwargs["position_ids"] = None
+        if kwargs.get("token_type_ids", None) is not None:
+            warnings.warn("Token type ids are not supported for parameter efficient tuning. Ignoring token type ids")
+            kwargs["token_type_ids"] = None
+        kwargs.update(
+            {
+                "attention_mask": attention_mask,
+                "decoder_attention_mask": decoder_attention_mask,
+                "labels": labels,
+                "output_attentions": output_attentions,
+                "output_hidden_states": output_hidden_states,
+                "return_dict": return_dict,
+            }
+        )
 
         if peft_config.peft_type == PeftType.PREFIX_TUNING:
             past_key_values = self.get_prompt(batch_size)
@@ -1464,6 +1490,21 @@ class PeftModelForTokenClassification(PeftModel):
         task_ids=None,
         **kwargs,
     ):
+        peft_config = self.active_peft_config
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        if not peft_config.is_prompt_learning:
+            return self.base_model(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                inputs_embeds=inputs_embeds,
+                labels=labels,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+                return_dict=return_dict,
+                **kwargs,
+            )
+        
         batch_size = _get_batch_size(input_ids, inputs_embeds)
         if attention_mask is not None:
             # concat prompt attention mask
