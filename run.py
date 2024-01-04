@@ -104,6 +104,10 @@ if __name__ == "__main__":
         assert data_args.dataset_name.lower() in GLUE_DATASETS
         from tasks.glue.dataset import GlueDataset
         dataset = GlueDataset
+    elif data_args.task_name.lower() == "super_glue":
+        assert data_args.dataset_name.lower() in SUPERGLUE_DATASETS
+        from tasks.superglue.dataset import SuperGlueDataset
+        dataset = SuperGlueDataset
     else:
         raise NotImplementedError("Task {} is not implemented. Please choose a task from: {}".format(data_args.task_name, ", ".join(TASKS)))
     

@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import logging
 import functools
+import enum
 import numpy as np
 
 from typing import Callable, List, Mapping
@@ -28,6 +29,7 @@ class AbstractDataset(ABC):
     processed_dataset = NotImplemented
     tokenized_dataset = NotImplemented
     preprocessor: Callable = NotImplemented
+    postprocessor: Callable = NotImplemented
     prefix = NotImplemented
     metric = NotImplemented
     
@@ -79,6 +81,13 @@ class AbstractDataset(ABC):
             self.data_collator = DataCollatorWithPadding(tokenizer, pad_to_multiple_of=8)
         else:
             self.data_collator = None
+        
+        if self.task in POST_PROCESSOR:
+            post_processor = POST_PROCESSOR[self.task](tokenizer, self.data_args.ignore_pad_token_for_loss)
+        else:
+            post_processor = PostProcessor(tokenizer, self.data_args.ignore_pad_token_for_loss)
+        
+        self.postprocessor = post_processor.process
     
     def set_max_target_length(self, default_max_length):
         if self.labels_list is not None:
@@ -95,7 +104,8 @@ class AbstractDataset(ABC):
         sources = [src_prefix] + sources if add_prefix else sources
         return {'source': ' '.join(sources),
                 'target': ' '.join(targets),
-                'task': self.name}
+                'task': self.name,
+                'extra_fields': extra_fields}
     
     def preprocess_dataset(self):
         self.processed_dataset = self.raw_datasets.map(
@@ -200,20 +210,6 @@ class AbstractDataset(ABC):
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
     
-    # PostProcessing
-    def postprocess(self, preds, labels, data_info=None):
-        if isinstance(preds, tuple):
-            preds = preds[0]
-        decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
-        if self.data_args.ignore_pad_token_for_loss:
-            # Replace -100 in the labels as we can'y decode them.
-            labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
-        decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
-        # Some simple post-processing
-        decoded_preds = [pred.strip() for pred in decoded_preds]
-        decoded_labels = [label.strip() for label in decoded_labels]
-        return decoded_preds, decoded_labels
-    
     def compute_metrics_encoder(self, p: EvalPrediction):
         preds, labels = p
         num_logits = preds.shape[-1]
@@ -236,3 +232,44 @@ class AbstractDataset(ABC):
         decoded_preds, decoded_labels = self.postprocess(preds, labels, data_info=None)
         result = self.metric.compute(predictions=decoded_preds, references=decoded_labels)
         return result
+
+
+class PostProcessor(ABC):
+    """Postprocess the predictions and labels to make them suitable for evaluation."""
+    def __init__(self, tokenizer, ignore_pad_token_for_loss):
+        self.tokenizer = tokenizer
+        self.ignore_pad_token_for_loss = ignore_pad_token_for_loss
+    
+    def process(self, preds, labels, data_info=None):
+        if isinstance(preds, tuple):
+            preds = preds[0]
+        decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
+        if self.ignore_pad_token_for_loss:
+            # Replace -100 in the labels as we can't decode them.
+            labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
+        decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
+        # Some simple post-processing
+        decoded_preds = [pred.strip() for pred in decoded_preds]
+        decoded_labels = [label.strip() for label in decoded_labels]
+        return decoded_preds, decoded_labels 
+
+
+class MultiRC(PostProcessor):
+    def process(self, preds, labels, data_info):
+        preds, labels = super().process(preds, labels, data_info) 
+        preds = [{"group": info["group"], "value":pred} for info, pred in zip(data_info, preds)]
+        labels = [{"group": info["group"], "value": label} for info, label in zip(data_info, labels)] 
+        return preds, labels 
+
+
+class Record(PostProcessor):
+    def process(self, preds, labels, data_info):
+        preds, labels = super().process(preds, labels, data_info) 
+        # labels = [info["answers"] for info in data_info]
+        return preds, labels 
+
+
+POST_PROCESSOR = {
+    # "multirc": MultiRC,
+    "record": Record
+}
