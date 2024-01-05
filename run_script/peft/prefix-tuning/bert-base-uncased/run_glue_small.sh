@@ -25,13 +25,12 @@ for DATASET_NAME in cola mrpc rte stsb wnli; do
         --learning_rate $lr \
         --num_train_epochs $epoch \
         --weight_decay $weight_decay \
-        --output_dir checkpoints/PEFT/PREFIX_TUNING/$TASK_NAME-$DATASET_NAME-$MODEL_NAME-$lr-$PEFT_TYPE-$var// \
+        --output_dir checkpoints/PEFT/PREFIX_TUNING/$TASK_NAME-$DATASET_NAME-$MODEL_NAME-$lr-$PEFT_TYPE-$var/ \
         --overwrite_output_dir \
         --seed 1 \
         --save_strategy no \
         --evaluation_strategy epoch \
         --peft_type $PEFT_TYPE \
-        --k_shot_example 10 \
         --num_virtual_tokens $var
     done;
   done;

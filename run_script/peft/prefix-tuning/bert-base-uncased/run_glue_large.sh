@@ -5,11 +5,11 @@ export PEFT_TYPE=PREFIX_TUNING
 
 max_seq_length=256
 bs=32
-epoch=20
+epoch=10
 weight_decay=1e-5
 virtual_tokens_list="20"
 
-for DATASET_NAME in cola mrpc rte stsb wnli; do
+for DATASET_NAME in mnli qnli qqp sst2; do
   for lr in 5e-4 5e-5; do
     for var in $virtual_tokens_list; do
       python run.py \
@@ -25,13 +25,12 @@ for DATASET_NAME in cola mrpc rte stsb wnli; do
         --learning_rate $lr \
         --num_train_epochs $epoch \
         --weight_decay $weight_decay \
-        --output_dir checkpoints/PEFT/PREFIX_TUNING/$TASK_NAME-$DATASET_NAME-$MODEL_NAME-$lr-$PEFT_TYPE-$var// \
+        --output_dir checkpoints/FFT/$TASK_NAME-$DATASET_NAME-$MODEL_NAME-$lr-$PEFT_TYPE-$var/ \
         --overwrite_output_dir \
         --seed 1 \
         --save_strategy no \
         --evaluation_strategy epoch \
         --peft_type $PEFT_TYPE \
-        --k_shot_example 10 \
         --num_virtual_tokens $var
     done;
   done;
