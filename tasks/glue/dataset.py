@@ -45,18 +45,18 @@ class GlueDataset(AbstractDataset):
             self.id2label = {id: label for label, id in self.label2id.items()}
         
         # Check dataset
+        logger.info(f"{colorstr('bright_yellow', 'bold', 'Check Dataset')}")
         if self.sentence2_key is None:
-            logger.info(f"{colorstr('bright_yellow', 'bold', 'Check Dataset')} \n"
-                        f"{colorstr('bright_magenta', 'bold', self.sentence1_key)} : {self.raw_datasets['train'][0][self.sentence1_key]}\n"
-                        f"{colorstr('bright_magenta', 'bold', 'label')} : {self.id2label[self.raw_datasets['train'][0]['label']]}"
-                        )
+            print(f"{colorstr('bright_magenta', 'bold', self.sentence1_key)} : {self.raw_datasets['train'][0][self.sentence1_key]}\n"
+                  f"{colorstr('bright_magenta', 'bold', 'label')} : {self.id2label[self.raw_datasets['train'][0]['label']]}"
+                  )
         else:
-            logger.info(f"{colorstr('bright_yellow', 'bold', 'Check Dataset')} \n"
-                        f"{colorstr('bright_magenta', 'bold', self.sentence1_key)} : {self.raw_datasets['train'][0][self.sentence1_key]}\n"
-                        f"{colorstr('bright_magenta', 'bold', self.sentence2_key)} : {self.raw_datasets['train'][0][self.sentence2_key]}\n"
-                        f"{colorstr('bright_magenta', 'bold', 'label')} : "
-                        f"{self.raw_datasets['train'][0]['label'] if self.is_regression else self.id2label[self.raw_datasets['train'][0]['label']]}"  
-                        )
+            print(f"{colorstr('bright_magenta', 'bold', self.sentence1_key)} : {self.raw_datasets['train'][0][self.sentence1_key]}\n"
+                  f"{colorstr('bright_magenta', 'bold', self.sentence2_key)} : {self.raw_datasets['train'][0][self.sentence2_key]}\n"
+                  f"{colorstr('bright_magenta', 'bold', 'label')} : "
+                  f"{self.raw_datasets['train'][0]['label'] if self.is_regression else self.id2label[self.raw_datasets['train'][0]['label']]}"  
+                  )
+        
         # Preprocess format
         self.preprocess_dataset()
         
@@ -136,19 +136,19 @@ class GlueDataset(AbstractDataset):
         
         # Evaluation
         if self.training_args.do_eval:
-            self.eval_dataset = self.tokenized_dataset['validation_matched' if self.data_args.dataset_name == "mnli" else "validation"]
+            self.eval_dataset = self.tokenized_dataset['validation_matched' if self.name == "mnli" else "validation"]
             if self.data_args.max_eval_samples is not None:
                 self.eval_dataset = self.eval_dataset.select(range(self.data_args.max_eval_samples))
         
         # Prediction
-        if self.training_args.do_predict or self.data_args.dataset_name is not None or self.data_args.test_file is not None:
-            self.predict_dataset = self.tokenized_dataset['test_matched' if self.data_args.dataset_name == 'mnli' else 'test']
+        if self.training_args.do_predict or self.name is not None or self.data_args.test_file is not None:
+            self.predict_dataset = self.tokenized_dataset['test_matched' if self.name == 'mnli' else 'test']
             if self.data_args.max_predict_samples is not None:
                 self.predict_dataset = self.predict_dataset.select(range(self.data_args.max_predict_samples))
 
     def set_metrics(self):
-        if self.data_args.dataset_name is not None:
-            self.metric = evaluate.load("glue", self.data_args.dataset_name)
+        if self.name is not None:
+            self.metric = evaluate.load("glue", self.name)
         elif self.is_regression:
             self.metric = evaluate.load("mse")
         else:
