@@ -4,10 +4,10 @@ export CUDA_VISIBLE_DEVICES=0
 
 max_seq_length=256
 bs=32
-epoch=20
+epoch=10
 weight_decay=1e-5
 
-for DATASET_NAME in cola mrpc rte stsb wnli; do
+for DATASET_NAME in mnli qnli qqp sst2; do
   for lr in 5e-4 5e-5; do
     python run.py \
       --model_name_or_path $MODEL_NAME \
