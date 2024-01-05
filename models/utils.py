@@ -55,13 +55,14 @@ AUTO_PEFT = {
 logger = logging.getLogger(__name__)
 
 
-def get_model(model_args, peft_args, task_type: TaskType):
+def get_model(model_args, peft_args, task_type: TaskType, num_labels):
     logger.info(f"{colorstr('bright_blue', 'bold', '*** Model Initialization Start ***')}")
     model_class = AUTO_MODEL[task_type]
     model = model_class.from_pretrained(
         model_args.model_name_or_path,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
+        num_labels=num_labels
     )
     
     all_param = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -114,18 +115,20 @@ def get_trainer(model_args, data_args, training_args, peft_args, Dataset):
     if any(x in model_args.model_name_or_path for x in ["bert", "roberta", "albert"]):
         logger.info(f"Loading encoder model from {model_args.model_name_or_path}.")
         task_type = TaskType.SEQ_CLS
-        model = get_model(model_args, peft_args, task_type)
+        model = get_model(model_args, peft_args, task_type, num_labels)
     elif any(x in model_args.model_name_or_path for x in ["t5"]):
         logger.info(f"Loading seq2seq model from {model_args.model_name_or_path}.")
         task_type = TaskType.SEQ_2_SEQ_LM
-        model = get_model(model_args, peft_args, task_type)
+        model = get_model(model_args, peft_args, task_type, num_labels)
     elif any(x in model_args.model_name_or_path for x in ["gpt"]): # TODO : add 라마 추가하기
         logger.info(f"Loading decoder model from {model_args.model_name_or_path}.")
         task_type = TaskType.CAUSAL_LM
         training_args.generation_max_length = dataset.max_seq_length + training_args.generation_max_length
-        model = get_model(model_args, peft_args, task_type)
+        model = get_model(model_args, peft_args, task_type, num_labels)
     else:
         raise NotImplementedError
+    
+    model.peft_config[model.active_adapter].inference_mode = False
 
     if task_type == TaskType.SEQ_CLS:
         trainer = Trainer(
