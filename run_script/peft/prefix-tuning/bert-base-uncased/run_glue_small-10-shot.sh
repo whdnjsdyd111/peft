@@ -14,7 +14,7 @@ for DATASET_NAME in cola mrpc rte stsb wnli; do
     for var in $virtual_tokens_list; do
       python run.py \
         --model_name_or_path $MODEL_NAME \
-        --run_name $TASK_NAME-$DATASET_NAME-$MODEL_NAME-$lr-$PEFT_TYPE-$var \
+        --run_name $TASK_NAME-$DATASET_NAME-$MODEL_NAME-$lr-$PEFT_TYPE-$var-k-shot-10 \
         --task_name $TASK_NAME \
         --dataset_name $DATASET_NAME \
         --do_train \
@@ -25,7 +25,7 @@ for DATASET_NAME in cola mrpc rte stsb wnli; do
         --learning_rate $lr \
         --num_train_epochs $epoch \
         --weight_decay $weight_decay \
-        --output_dir checkpoints/PEFT/PREFIX_TUNING/$TASK_NAME-$DATASET_NAME-$MODEL_NAME-$lr-$PEFT_TYPE-$var// \
+        --output_dir checkpoints/PEFT/PREFIX_TUNING/$TASK_NAME-$DATASET_NAME-$MODEL_NAME-$lr-$PEFT_TYPE-$var-k-shot-10/ \
         --overwrite_output_dir \
         --seed 1 \
         --save_strategy no \
