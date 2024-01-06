@@ -82,8 +82,8 @@ class AbstractDataset(ABC):
         else:
             self.data_collator = None
         
-        if self.task in POST_PROCESSOR:
-            post_processor = POST_PROCESSOR[self.task](tokenizer, data_args.ignore_pad_token_for_loss)
+        if self.name in POST_PROCESSOR:
+            post_processor = POST_PROCESSOR[self.name](tokenizer, data_args.ignore_pad_token_for_loss)
         else:
             post_processor = PostProcessor(tokenizer, data_args.ignore_pad_token_for_loss)
         
@@ -222,14 +222,14 @@ class AbstractDataset(ABC):
     
     def compute_metrics_seq2seq(self, p: EvalPrediction):
         preds, labels = p
-        decoded_preds, decoded_labels = self.postprocessor(preds, labels, data_info=None)
+        decoded_preds, decoded_labels = functools.partial(self.postprocessor, preds=preds, labels=labels, data_info=None)
         result = self.metric.compute(predictions=decoded_preds, references=decoded_labels)
         return result
     
     def compute_metrics_decoder(self, p: EvalPrediction):
         output_sequences, labels = p
         preds = output_sequences[:, self.data_args.max_seq_length:]
-        decoded_preds, decoded_labels = self.postprocessor(preds, labels, data_info=None)
+        decoded_preds, decoded_labels = functools.partial(self.postprocessor, preds=preds, labels=labels, data_info=None)
         result = self.metric.compute(predictions=decoded_preds, references=decoded_labels)
         return result
 
