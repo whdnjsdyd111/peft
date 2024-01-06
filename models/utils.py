@@ -129,6 +129,9 @@ def get_trainer(model_args, data_args, training_args, peft_args, Dataset):
         raise NotImplementedError
     
     model.peft_config[model.active_adapter].inference_mode = False
+    
+    if model.config.pad_token_id is None:
+        model.config.pad_token_id = tokenizer.eos_token_id
 
     if task_type == TaskType.SEQ_CLS:
         trainer = Trainer(
