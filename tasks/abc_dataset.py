@@ -104,8 +104,7 @@ class AbstractDataset(ABC):
         sources = [src_prefix] + sources if add_prefix else sources
         return {'source': ' '.join(sources),
                 'target': ' '.join(targets),
-                'task': self.name,
-                'extra_fields': extra_fields}
+                'task': self.name,}
     
     def preprocess_dataset(self):
         self.processed_dataset = self.raw_datasets.map(
@@ -126,6 +125,7 @@ class AbstractDataset(ABC):
             logger.info(f"Loading decoder model from {self.model_args.model_name_or_path}")
             tokenize_function = self.decoder_preprocess_function
             self.compute_metrics = self.compute_metrics_decoder
+            self.training_args.generation_max_length = self.max_seq_length + training_args.generation_max_length
         else:
             raise NotImplementedError
         
@@ -222,14 +222,18 @@ class AbstractDataset(ABC):
     
     def compute_metrics_seq2seq(self, p: EvalPrediction):
         preds, labels = p
-        decoded_preds, decoded_labels = functools.partial(self.postprocessor, preds=preds, labels=labels, data_info=None)
+        print("preds:", preds)
+        print("labels:", labels)
+        decoded_preds, decoded_labels = self.postprocessor(preds=preds, labels=labels, data_info=None)
+        print("decoded_preds:", decoded_preds)
+        print("decoded_labels:", decoded_labels)
         result = self.metric.compute(predictions=decoded_preds, references=decoded_labels)
         return result
     
     def compute_metrics_decoder(self, p: EvalPrediction):
         output_sequences, labels = p
         preds = output_sequences[:, self.data_args.max_seq_length:]
-        decoded_preds, decoded_labels = functools.partial(self.postprocessor, preds=preds, labels=labels, data_info=None)
+        decoded_preds, decoded_labels = self.postprocessor(preds=preds, labels=labels, data_info=None)
         result = self.metric.compute(predictions=decoded_preds, references=decoded_labels)
         return result
 
@@ -243,6 +247,7 @@ class PostProcessor(ABC):
     def process(self, preds, labels, data_info=None):
         if isinstance(preds, tuple):
             preds = preds[0]
+        
         decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
         if self.ignore_pad_token_for_loss:
             # Replace -100 in the labels as we can't decode them.
@@ -271,5 +276,5 @@ class Record(PostProcessor):
 
 POST_PROCESSOR = {
     # "multirc": MultiRC,
-    "record": Record
+    # "record": Record
 }

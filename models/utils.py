@@ -82,7 +82,9 @@ def get_model(model_args, peft_args, task_type: TaskType, num_labels):
         
         peft_config = peft_class(task_type=task_type, **peft_dict)
         logger.info(f"{colorstr('bright_yellow', 'bold', 'Peft parameters')} {peft_config}")
+        
         model = get_peft_model(model, peft_config)
+        model.peft_config[model.active_adapter].inference_mode = False
         
         peft_param = sum(p.numel() for p in model.parameters() if p.requires_grad)
         logger.info(f"***** {colorstr('bright_yellow', 'bold', 'peft total param')} is {colorstr('bright_yellow', 'bold', f'{peft_param}')} *****")
@@ -104,7 +106,7 @@ def get_trainer(model_args, data_args, training_args, peft_args, Dataset):
         model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
         padding_side=padding_side,
         use_fast=model_args.use_fast_tokenizer,
-        revision=model_args.model_revision
+        revision=model_args.model_revision,
     )
     
     if tokenizer.pad_token_id is None:
@@ -115,24 +117,17 @@ def get_trainer(model_args, data_args, training_args, peft_args, Dataset):
     if any(x in model_args.model_name_or_path for x in ["bert", "roberta", "albert"]):
         logger.info(f"Loading encoder model from {model_args.model_name_or_path}.")
         task_type = TaskType.SEQ_CLS
-        model = get_model(model_args, peft_args, task_type, dataset.num_labels)
     elif any(x in model_args.model_name_or_path for x in ["t5"]):
         logger.info(f"Loading seq2seq model from {model_args.model_name_or_path}.")
         task_type = TaskType.SEQ_2_SEQ_LM
-        model = get_model(model_args, peft_args, task_type, dataset.num_labels)
     elif any(x in model_args.model_name_or_path for x in ["gpt"]): # TODO : add 라마 추가하기
         logger.info(f"Loading decoder model from {model_args.model_name_or_path}.")
         task_type = TaskType.CAUSAL_LM
-        training_args.generation_max_length = dataset.max_seq_length + training_args.generation_max_length
-        model = get_model(model_args, peft_args, task_type, dataset.num_labels)
     else:
         raise NotImplementedError
     
-    model.peft_config[model.active_adapter].inference_mode = False
+    model = get_model(model_args, peft_args, task_type, dataset.num_labels)
     
-    if model.config.pad_token_id is None:
-        model.config.pad_token_id = tokenizer.eos_token_id
-
     if task_type == TaskType.SEQ_CLS:
         trainer = Trainer(
             model=model,

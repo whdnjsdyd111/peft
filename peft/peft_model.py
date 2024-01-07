@@ -981,7 +981,7 @@ class PeftModelForSequenceClassification(PeftModel):
                     if self.base_model.num_labels == 1:
                         loss = loss_fct(logits.squeeze(), labels.squeeze())
                     else:
-                        loss = fct(logits, labels)
+                        loss = loss_fct(logits, labels)
                 elif self.config.problem_type == "single_label_classification":
                     loss_fct = CrossEntropyLoss()
                     loss = loss_fct(logits.view(-1, self.base_model.num_labels), labels.view(-1))
@@ -1071,6 +1071,7 @@ class PeftModelForCausalLM(PeftModel):
             return self.base_model(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
+                inputs_embeds=inputs_embeds,
                 labels=labels,
                 output_attentions=output_attentions,
                 output_hidden_states=output_hidden_states,
@@ -1165,7 +1166,6 @@ class PeftModelForCausalLM(PeftModel):
                 model_kwargs["past_key_values"] = past_key_values
             else:
                 if model_kwargs["past_key_values"] is None:
-                    inputs_embeds = self.word_embeddings(model_kwargs["input_ids"])
                     inputs_embeds = self.word_embeddings(model_kwargs["input_ids"])
                     prompts = self.get_prompt(batch_size=model_kwargs["input_ids"].shape[0], task_ids=task_ids)
                     prompts = prompts.to(inputs_embeds.dtype)
