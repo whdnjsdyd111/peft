@@ -55,14 +55,14 @@ AUTO_PEFT = {
 logger = logging.getLogger(__name__)
 
 
-def get_model(model_args, peft_args, task_type: TaskType, num_labels):
+def get_model(model_args, peft_args, task_type: TaskType, tokenizer, dataset):
     logger.info(f"{colorstr('bright_blue', 'bold', '*** Model Initialization Start ***')}")
     model_class = AUTO_MODEL[task_type]
     model = model_class.from_pretrained(
         model_args.model_name_or_path,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
-        num_labels=num_labels
+        num_labels=dataset.num_labels
     )
     
     all_param = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -126,7 +126,7 @@ def get_trainer(model_args, data_args, training_args, peft_args, Dataset):
     else:
         raise NotImplementedError
     
-    model = get_model(model_args, peft_args, task_type, dataset.num_labels)
+    model = get_model(model_args, peft_args, task_type, tokenizer, dataset)
     
     if task_type == TaskType.SEQ_CLS:
         trainer = Trainer(

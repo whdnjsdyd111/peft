@@ -908,7 +908,7 @@ class PeftModelForSequenceClassification(PeftModel):
             if kwargs.get("token_type_ids", None) is not None:
                 kwargs["token_type_ids"] = torch.cat(
                     (
-                        torch.zeros(batch_size, peft_config.num_virtual_tokens).to(self.ward_embeddings.weight.device),
+                        torch.zeros(batch_size, peft_config.num_virtual_tokens).to(self.word_embeddings.weight.device),
                         kwargs["token_type_ids"],
                     ),
                     dim=1,
@@ -961,7 +961,7 @@ class PeftModelForSequenceClassification(PeftModel):
             outputs = transformer_backbone_name(**kwargs)
             pooled_output = outputs[1] if len(outputs) > 1 else outputs[0]
             
-            if "droupout" in [name for name, _ in list(self.base_model.named_children())]:
+            if "dropout" in [name for name, _ in list(self.base_model.named_children())]:
                 pooled_output = self.base_model.dropout(pooled_output)
             
             logits = self.base_model.get_submodule(self.cls_layer_name)(pooled_output)
@@ -1314,7 +1314,7 @@ class PeftModelForSeq2SeqLM(PeftModel):
                 decoder_inputs_embeds = self.word_embeddings(decoder_input_ids)
             
             if attention_mask is not None:
-                # concat promtp attention mask
+                # concat prompt attention mask
                 prefix_attention_mask = torch.ones(batch_size, peft_config.num_virtual_tokens).to(
                     attention_mask.device
                 )
