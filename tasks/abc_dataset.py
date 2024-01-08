@@ -31,7 +31,8 @@ class AbstractDataset(ABC):
     preprocessor: Callable = NotImplemented
     postprocessor: Callable = NotImplemented
     prefix = NotImplemented
-    metric = NotImplemented
+    metrics = NotImplemented
+    metrics_name = NotImplemented
     
     train_dataset = NotImplemented
     eval_dataset = NotImplemented
@@ -129,6 +130,9 @@ class AbstractDataset(ABC):
         else:
             raise NotImplementedError
         
+        self.training_args.metric_for_best_model = self.metrics_name[0]
+        self.training_args.greater_is_better = True
+        
         self.tokenized_dataset = self.processed_dataset.map(
             functools.partial(tokenize_function),
             batched=True,
@@ -217,24 +221,29 @@ class AbstractDataset(ABC):
             preds = np.squeeze(preds)
         else:
             preds = np.argmax(preds, axis=1)
-        result = self.metric.compute(predictions=preds, references=labels)
+        
+        result = {}
+        for metric in self.metrics:
+            result.update(metric(predictions=preds, labels=labels))
         return result
     
     def compute_metrics_seq2seq(self, p: EvalPrediction):
         preds, labels = p
-        print("preds:", preds)
-        print("labels:", labels)
         decoded_preds, decoded_labels = self.postprocessor(preds=preds, labels=labels, data_info=None)
-        print("decoded_preds:", decoded_preds)
-        print("decoded_labels:", decoded_labels)
-        result = self.metric.compute(predictions=decoded_preds, references=decoded_labels)
+        
+        result = {}
+        for metric in self.metrics:
+            result.update(metric(predictions=decoded_preds, labels=decoded_labels))
         return result
     
     def compute_metrics_decoder(self, p: EvalPrediction):
         output_sequences, labels = p
         preds = output_sequences[:, self.data_args.max_seq_length:]
         decoded_preds, decoded_labels = self.postprocessor(preds=preds, labels=labels, data_info=None)
-        result = self.metric.compute(predictions=decoded_preds, references=decoded_labels)
+
+        result = {}
+        for metric in self.metrics:
+            result.update(metric(predictions=decoded_preds, labels=decoded_labels))
         return result
 
 

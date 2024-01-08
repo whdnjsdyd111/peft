@@ -6,6 +6,7 @@ import functools
 
 from tasks.abc_dataset import AbstractDataset
 from utils.general import colorstr, colorformat, emojis
+from utils import metrics
 
 task_to_keys = {
     "boolq": ("question", "passage"),               #   9,427
@@ -16,6 +17,17 @@ task_to_keys = {
     "copa": (None, None),                           #     400
     "record": (None, None),                         # 100,730
     "multirc": ("paragraph", "question_answer")     #  27,243
+}
+
+task_to_metrics = {
+    "boolq": {"name": ["accuracy"], "metrics": [metrics.accuracy]},
+    "cb": {"name": ["f1_multiclass", "accuracy"], "metrics": [metrics.mean_multiclass_f1(num_classes=3), metrics.accuracy]},
+    "rte": {"name": ["accuracy"], "metrics": [metrics.accuracy]},
+    "wic": {"name": ["accuracy"], "metrics": [metrics.accuracy]},
+    "wsc": {"name": ["accuracy"], "metrics": [metrics.accuracy]},
+    "copa": {"name": ["accuracy"], "metrics": [metrics.accuracy]},
+    "record": {"name": ["f1", "em"], "metrics": [metrics.f1_score_with_invalid, metrics.exact_match]},
+    "multirc": {"name": ["f1", "em"], "metrics": [metrics.f1_score_with_invalid, metrics.exact_match]},
 }
 
 logger = logging.getLogger(__name__)
@@ -84,6 +96,9 @@ class SuperGlueDataset(AbstractDataset):
                   f"{self.id2label[self.raw_datasets['train'][0]['label']]}"
                   )
         
+        # Set metrics
+        self.set_metrics()
+        
         # Preprocess format
         if data_args.dataset_name == "record":
             self.processed_dataset = self.raw_datasets.map(
@@ -104,9 +119,6 @@ class SuperGlueDataset(AbstractDataset):
         
         # Split Dataset
         self.split_dataset()
-        
-        # Set metrics
-        self.set_metrics()
 
     def preprocessor(self, example, add_prefix=True):
         extra_fields = {}
@@ -239,7 +251,5 @@ class SuperGlueDataset(AbstractDataset):
                 self.predict_dataset = self.predict_dataset.select(range(self.data_args.max_predict_samples))
 
     def set_metrics(self):
-        if self.name is not None:
-            self.metric = evaluate.load("super_glue", self.name)
-        else:
-            self.metric = evaluate.load("accuracy")
+        self.metrics_name = task_to_metrics[self.name]["name"]
+        self.metrics = task_to_metrics[self.name]["metrics"]

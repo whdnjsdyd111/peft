@@ -5,6 +5,7 @@ import functools
 
 from tasks.abc_dataset import AbstractDataset
 from utils.general import colorstr, colorformat, emojis
+from utils import metrics
 
 task_to_keys = {
     "cola": ("sentence", None),         #   8,551
@@ -16,6 +17,20 @@ task_to_keys = {
     "sst2": ("sentence", None),         #  67,349
     "stsb": ("sentence1", "sentence2"), #   5,749
     "wnli": ("sentence1", "sentence2"), #     635
+}
+
+task_to_metrics = {
+    "cola": {"name": ["matthews_correlation"], "metrics": [metrics.matthews_corrcoef]},
+    "mnli": {"name": ["accuracy"], "metrics": [metrics.accuracy]},
+    "mnli_mismatched": {"name": ["accuracy"], "metrics": [metrics.accuracy]},
+    "mnli_matched": {"name": ["accuracy"], "metrics": [metrics.accuracy]},
+    "mrpc": {"name": ["accuracy", "f1"], "metrics": [metrics.accuracy, metrics.f1_score_with_invalid]},
+    "qnli": {"name": ["accuracy"], "metrics": [metrics.accuracy]},
+    "qqp": {"name": ["accuracy", "f1"], "metrics": [metrics.accuracy, metrics.f1_score_with_invalid]},
+    "rte": {"name": ["accuracy"], "metrics": [metrics.accuracy]},
+    "sst2": {"name": ["accuracy"], "metrics": [metrics.accuracy]},
+    "stsb": {"name": ["pearson", "spearmanr"], "metrics": [metrics.pearson_corrcoef, metrics.spearman_corrcoef]},
+    "wnli": {"name": ["accuracy"], "metrics": [metrics.accuracy]},
 }
 
 logger = logging.getLogger(__name__)
@@ -57,6 +72,9 @@ class GlueDataset(AbstractDataset):
                   f"{self.raw_datasets['train'][0]['label'] if self.is_regression else self.id2label[self.raw_datasets['train'][0]['label']]}"  
                   )
         
+        # Set metrics
+        self.set_metrics()
+        
         # Preprocess format
         self.preprocess_dataset()
         
@@ -68,9 +86,6 @@ class GlueDataset(AbstractDataset):
         
         # Split Dataset
         self.split_dataset()
-        
-        # Set metrics
-        self.set_metrics()
         
     def round_stsb_target(self, label):
         """STSB maps two sentences to a floating point number between 1 and 5
@@ -147,9 +162,5 @@ class GlueDataset(AbstractDataset):
                 self.predict_dataset = self.predict_dataset.select(range(self.data_args.max_predict_samples))
 
     def set_metrics(self):
-        if self.name is not None:
-            self.metric = evaluate.load("glue", self.name)
-        elif self.is_regression:
-            self.metric = evaluate.load("mse")
-        else:
-            self.metric = evaluate.load("accuracy")
+        self.metrics_name = task_to_metrics[self.name]["name"]
+        self.metrics = task_to_metrics[self.name]["metrics"]
