@@ -23,6 +23,7 @@ for DATASET_NAME in cola mrpc rte stsb wnli; do
       --learning_rate $lr \
       --num_train_epochs $epoch \
       --weight_decay $weight_decay \
+      --warmup_steps 500 \
       --output_dir checkpoints/FFT/$MODEL_NAME/$TASK_NAME-$DATASET_NAME-$lr-k-shot-10/ \
       --overwrite_output_dir \
       --seed 1 \
