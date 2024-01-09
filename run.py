@@ -54,14 +54,12 @@ def predict(trainer, predict_dataset=None):
         logger.info(colorstr('bright_blue', 'bold', '*** Predict Start ***'))
         for dataset_name, d in predict_dataset.items():
             predictions, labels, metrics = trainer.predict(d, metric_key_prefix="predict")
-            predictions = np.argmax(predictions, axis=2)
             
             trainer.log_metrics("predict", metrics)
             trainer.save_metrics("predict", metrics)
     else:
         logger.info(colorstr('bright_blue', 'bold', '*** Predict Start ***'))
         predictions, labels, metrics = trainer.predict(predict_dataset, metric_key_prefix="predict")
-        predictions = np.argmax(predictions, axis=2)
         
         trainer.log_metrics("predict", metrics)
         trainer.save_metrics("predict", metrics)
