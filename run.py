@@ -47,22 +47,15 @@ def evaluate(trainer):
     trainer.save_metrics("eval", metrics)
 
 
-def predict(trainer, predict_dataset=None):
+def predict(trainer, predict_dataset):
     if predict_dataset is None:
         logger.info("No dataset is available for testing")
-    elif isinstance(predict_dataset, dict):
-        logger.info(colorstr('bright_blue', 'bold', '*** Predict Start ***'))
-        for dataset_name, d in predict_dataset.items():
-            predictions, labels, metrics = trainer.predict(d, metric_key_prefix="predict")
-            
-            trainer.log_metrics("predict", metrics)
-            trainer.save_metrics("predict", metrics)
     else:
         logger.info(colorstr('bright_blue', 'bold', '*** Predict Start ***'))
-        predictions, labels, metrics = trainer.predict(predict_dataset, metric_key_prefix="predict")
+        predictions, labels, metrics = trainer.predict(predict_dataset, metric_key_prefix="test")
         
-        trainer.log_metrics("predict", metrics)
-        trainer.save_metrics("predict", metrics)
+        trainer.log_metrics("test", metrics)
+        trainer.save_metrics("test", metrics)
 
 
 if __name__ == "__main__":

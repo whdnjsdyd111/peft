@@ -246,26 +246,29 @@ class SuperGlueDataset(AbstractDataset):
         elif self.name in large_dataset_without_all_splits:
             is_small = False
         
-        dct = {"train": lst[0], "validation": lst[1], "test": lst[2]}    
+        dct = {"train": "train", "validation": "validation", "test": "test"}
         
         # Training
         if self.training_args.do_train:
             self.train_dataset = self.get(split_key=dct,
                                           split="train", 
                                           n_obs=self.data_args.max_train_samples,
+                                          split_validation_test=self.data_args.split_validation_test,
                                           is_small=is_small)
         
         # Evaluation
         if self.training_args.do_eval:
             self.eval_dataset = self.get(split_key=dct,
-                                         split="validation"
+                                         split="validation",
                                          n_obs=self.data_args.max_eval_samples,
+                                         split_validation_test=self.data_args.split_validation_test,
                                          is_small=is_small)
         
-        if self.do_predict:
+        if self.training_args.do_predict:
             self.predict_dataset = self.get(split_key=dct,
-                                            split="test"
+                                            split="test",
                                             n_obs=self.data_args.max_predict_samples,
+                                            split_validation_test=self.data_args.split_validation_test,
                                             is_small=is_small)
 
     def set_metrics(self):

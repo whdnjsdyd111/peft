@@ -160,29 +160,31 @@ class GlueDataset(AbstractDataset):
         if self.name == "mnli":
             dct = {"train": "train", "validation": "validation_matched", "test": "test_matched"}
         else:
-            lst = [self.tokenized_dataset.keys()]
-            dct = {"train": lst[0], "validation": lst[1], "test": lst[2]}    
+            dct = {"train": "train", "validation": "validation", "test": "test"}
         
         # Training
         if self.training_args.do_train:
             self.train_dataset = self.get(split_key=dct,
                                           split="train", 
                                           n_obs=self.data_args.max_train_samples,
+                                          split_validation_test=self.data_args.split_validation_test,
                                           is_small=is_small)
         
         # Evaluation
         if self.training_args.do_eval:
             self.eval_dataset = self.get(split_key=dct,
-                                         split="validation"
+                                         split="validation",
                                          n_obs=self.data_args.max_eval_samples,
+                                         split_validation_test=self.data_args.split_validation_test,
                                          is_small=is_small)
         
-        if self.do_predict:
+        if self.training_args.do_predict:
             self.predict_dataset = self.get(split_key=dct,
-                                            split="test"
+                                            split="test",
                                             n_obs=self.data_args.max_predict_samples,
+                                            split_validation_test=self.data_args.split_validation_test,
                                             is_small=is_small)
-        
+    
     def set_metrics(self):
         self.metrics_name = task_to_metrics[self.name]["name"]
         self.metrics = task_to_metrics[self.name]["metrics"]
