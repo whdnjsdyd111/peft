@@ -90,6 +90,66 @@ class AbstractDataset(ABC):
         
         self.postprocessor = post_processor.process
     
+    def check_n_obs(self, n_obs, total_size):
+        if n_obs is not None and n_obs > total_size:
+            n_obs = total_size
+            logger.warning(f"n_obs is set to {n_obs}")
+        return n_obs
+    
+    def shuffled_indices(self, dataset):
+        num_samples = len(dataset)
+        generator = torch.Generator()
+        generator.manual_seed(self.training_args.seed)
+        return torch.randperm(num_samples, generator=generator).tolist()
+    
+    def subsample(self, dataset, n_obs=None, indices=None):
+        """
+        Given a dataset returns the subsampled dataset.
+        :param n_obs: the number of samples of the subsampled dataset.
+        :param indices: indices to select the samples from, if not given, indices are computed
+        from by shuffling the given dataset.
+        :return: subsampled dataset.
+        """
+        num_samples = len(dataset)
+        n_obs = self.check_n_obs(n_obs, num_samples)
+        if indices is None:
+            indices = self.shuffled_indices(dataset)
+        indices = indices[:n_obs]
+        return dataset.select(indices)
+    
+    def get_split_indices(self, split, dataset, validation_size):
+        indices = self.shuffled_indices(dataset)
+        if "validation" in split :
+            return indices[:validation_size]
+        else:
+            return indices[validation:]
+    
+    def get(self, split_key, split, n_obs=None, split_validation_test=False, is_small=None):
+        # For small datasets (n_samples < 10K) without test set, we divide validation set to
+        # half, use one half as test set and one half as validation set.
+        if split_validation_test and is_small == True and split != "train":
+            dataset = self.tokenized_dataset[split_key[split]]
+            indices = self.get_split_indices(split_key[split], dataset, validation_size=len(dataset) // 2)
+            dataset = self.subsample(dataset, n_obs, indices)
+        # For larger datasets (n_samples > 10K), we divide training set into 1K as
+        # validation and the rest as training set, keeping the original validation
+        # set as the test set.
+        elif split_validation_test and is_small == False and split != "test":
+            dataset = self.tokenized_dataset[split_key["train"]]
+            indices = self.get_split_indices(split_key[split], dataset, validation_size=1000)
+            dataset = self.subsample(dataset, n_obs, indices)
+        elif split_validation_test and is_small = False and split == "test":
+            dataset = self.tokenized_dataset[split_key["validation"]]
+            if n_obs is not None:
+                dataset = self.subsample(dataset, n_obs)
+        else:
+            dataset = self.tokenized_dataset[split_key[split]]
+            if n_obs is not None:
+                dataset = self.subsample(dataset, n_obs)
+        
+        return dataset
+            
+    
     def set_max_target_length(self, default_max_length):
         if self.labels_list is not None:
             self.max_target_length = max([len(self.tokenizer.encode(label)) for label in self.labels_list])

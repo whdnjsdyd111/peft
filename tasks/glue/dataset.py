@@ -8,15 +8,15 @@ from utils.general import colorstr, colorformat, emojis
 from utils import metrics
 
 task_to_keys = {
-    "cola": ("sentence", None),         #   8,551
-    "mnli": ("premise", "hypothesis"),  # 392,702
+    "cola": ("sentence", None),         #   8,551   no test
+    "mnli": ("premise", "hypothesis"),  # 392,702   no test
     "mrpc": ("sentence1", "sentence2"), #   3,668
-    "qnli": ("question", "sentence"),   # 104,743
-    "qqp": ("question1", "question2"),  # 363,846
-    "rte": ("sentence1", "sentence2"),  #   2,490
-    "sst2": ("sentence", None),         #  67,349
-    "stsb": ("sentence1", "sentence2"), #   5,749
-    "wnli": ("sentence1", "sentence2"), #     635
+    "qnli": ("question", "sentence"),   # 104,743   no test
+    "qqp": ("question1", "question2"),  # 363,846   no test
+    "rte": ("sentence1", "sentence2"),  #   2,490   no test
+    "sst2": ("sentence", None),         #  67,349   no test
+    "stsb": ("sentence1", "sentence2"), #   5,749   no test
+    "wnli": ("sentence1", "sentence2"), #     635   no test
 }
 
 task_to_metrics = {
@@ -32,6 +32,14 @@ task_to_metrics = {
     "stsb": {"name": ["pearson", "spearmanr"], "metrics": [metrics.pearson_corrcoef, metrics.spearman_corrcoef]},
     "wnli": {"name": ["accuracy"], "metrics": [metrics.accuracy]},
 }
+
+small_datasets_without_all_splits = [
+    "cola", "rte", "stsb", "wnli"
+]
+
+large_datasets_without_all_splits = [
+    "mnli", "qnli", "qqp", "sst2"
+]
 
 logger = logging.getLogger(__name__)
 
@@ -143,24 +151,38 @@ class GlueDataset(AbstractDataset):
         self.processed_dataset["train"] = shuffled_train_dataset.select(index_lst)
     
     def split_dataset(self):
+        is_small = None
+        if self.name in small_datasets_without_all_splits:
+            is_small = True
+        elif self.name in large_dataset_without_all_splits:
+            is_small = False
+        
+        if self.name == "mnli":
+            dct = {"train": "train", "validation": "validation_matched", "test": "test_matched"}
+        else:
+            lst = [self.tokenized_dataset.keys()]
+            dct = {"train": lst[0], "validation": lst[1], "test": lst[2]}    
+        
         # Training
         if self.training_args.do_train:
-            self.train_dataset = self.tokenized_dataset['train']
-            if self.data_args.max_train_samples is not None:
-                self.train_dataset = self.train_dataset.select(range(self.data_args.max_train_samples))
+            self.train_dataset = self.get(split_key=dct,
+                                          split="train", 
+                                          n_obs=self.data_args.max_train_samples,
+                                          is_small=is_small)
         
         # Evaluation
         if self.training_args.do_eval:
-            self.eval_dataset = self.tokenized_dataset['validation_matched' if self.name == "mnli" else "validation"]
-            if self.data_args.max_eval_samples is not None:
-                self.eval_dataset = self.eval_dataset.select(range(self.data_args.max_eval_samples))
+            self.eval_dataset = self.get(split_key=dct,
+                                         split="validation"
+                                         n_obs=self.data_args.max_eval_samples,
+                                         is_small=is_small)
         
-        # Prediction
-        if self.training_args.do_predict or self.name is not None or self.data_args.test_file is not None:
-            self.predict_dataset = self.tokenized_dataset['test_matched' if self.name == 'mnli' else 'test']
-            if self.data_args.max_predict_samples is not None:
-                self.predict_dataset = self.predict_dataset.select(range(self.data_args.max_predict_samples))
-
+        if self.do_predict:
+            self.predict_dataset = self.get(split_key=dct,
+                                            split="test"
+                                            n_obs=self.data_args.max_predict_samples,
+                                            is_small=is_small)
+        
     def set_metrics(self):
         self.metrics_name = task_to_metrics[self.name]["name"]
         self.metrics = task_to_metrics[self.name]["metrics"]

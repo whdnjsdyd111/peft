@@ -118,6 +118,13 @@ class DataTrainingArguments:
         default=None, 
         metadata={"help": "A csv or a json file containing the test data."}
     )
+    split_validation_test: Optional[bool] = field(
+        default=True,
+        metadata={"help": "If set, for the datasets which do not have the test set, we use validation set as their"
+                    "test set and make a validation set from either splitting the validation set into half (for smaller"
+                    "than 10K samples datasets), or by using 1K examples from training set as validation set (for larger"
+                    " datasets)."}
+    )
     template_id: Optional[int] = field(
         default=0,
         metadata={"help": "The specific prompt string to use"}

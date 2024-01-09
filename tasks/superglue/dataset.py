@@ -9,14 +9,14 @@ from utils.general import colorstr, colorformat, emojis
 from utils import metrics
 
 task_to_keys = {
-    "boolq": ("question", "passage"),               #   9,427
-    "cb": ("premise", "hypothesis"),                #     250
-    "rte": ("premise", "hypothesis"),               #   2,490
-    "wic": ("sentence1", "sentence2"),              #   5,428
-    "wsc": ("span1_text", "span2_text"),            #     554
-    "copa": (None, None),                           #     400
-    "record": (None, None),                         # 100,730
-    "multirc": ("paragraph", "question_answer")     #  27,243
+    "boolq": ("question", "passage"),               #   9,427   no test
+    "cb": ("premise", "hypothesis"),                #     250   no test
+    "rte": ("premise", "hypothesis"),               #   2,490   no test
+    "wic": ("sentence1", "sentence2"),              #   5,428   no test
+    "wsc": ("span1_text", "span2_text"),            #     554   no test
+    "copa": (None, None),                           #     400   no test
+    "record": (None, None),                         # 100,730   no test
+    "multirc": ("paragraph", "question_answer")     #  27,243   no test
 }
 
 task_to_metrics = {
@@ -29,6 +29,14 @@ task_to_metrics = {
     "record": {"name": ["f1", "em"], "metrics": [metrics.f1_score_with_invalid, metrics.exact_match]},
     "multirc": {"name": ["f1", "em"], "metrics": [metrics.f1_score_with_invalid, metrics.exact_match]},
 }
+
+small_datasets_without_all_splits = [
+    "boolq", "cb", "rte", "wic", "wsc", "copa"
+]
+
+large_datasets_without_all_splits = [
+    "record", "multirc"
+]
 
 logger = logging.getLogger(__name__)
 
@@ -232,23 +240,33 @@ class SuperGlueDataset(AbstractDataset):
         None
     
     def split_dataset(self):
+        is_small = None
+        if self.name in small_datasets_without_all_splits:
+            is_small = True
+        elif self.name in large_dataset_without_all_splits:
+            is_small = False
+        
+        dct = {"train": lst[0], "validation": lst[1], "test": lst[2]}    
+        
         # Training
         if self.training_args.do_train:
-            self.train_dataset = self.tokenized_dataset["train"]
-            if self.data_args.max_train_samples is not None:
-                self.train_dataset = self.train_dataset.select(range(self.data_args.max_train_samples))
+            self.train_dataset = self.get(split_key=dct,
+                                          split="train", 
+                                          n_obs=self.data_args.max_train_samples,
+                                          is_small=is_small)
         
         # Evaluation
         if self.training_args.do_eval:
-            self.eval_dataset = self.tokenized_dataset["validation"]
-            if self.data_args.max_eval_samples is not None:
-                self.eval_dataset = self.eval_dataset.select(range(self.data_args.max_eval_samples))
+            self.eval_dataset = self.get(split_key=dct,
+                                         split="validation"
+                                         n_obs=self.data_args.max_eval_samples,
+                                         is_small=is_small)
         
-        # Prediction
-        if self.training_args.do_predict or self.name is not None or self.data_args.test_file is not None:
-            self.predict_dataset = self.tokenized_dataset["test"]
-            if self.data_args.max_predict_samples is not None:
-                self.predict_dataset = self.predict_dataset.select(range(self.data_args.max_predict_samples))
+        if self.do_predict:
+            self.predict_dataset = self.get(split_key=dct,
+                                            split="test"
+                                            n_obs=self.data_args.max_predict_samples,
+                                            is_small=is_small)
 
     def set_metrics(self):
         self.metrics_name = task_to_metrics[self.name]["name"]
