@@ -2,6 +2,7 @@ import logging
 import functools
 
 from enum import Enum
+from copy import deepcopy
 
 from utils.general import colorstr, colorformat, emojis
 
@@ -15,6 +16,7 @@ from transformers import (
     AutoModelForCausalLM,
     AutoModelForTokenClassification,
     AutoModelForQuestionAnswering,
+    TrainerCallback
 )
 
 from peft import (
@@ -149,4 +151,18 @@ def get_trainer(model_args, data_args, training_args, peft_args, Dataset):
             data_collator=DataCollatorForSeq2Seq(tokenizer, model=model)
         )
     
+    trainer.add_callback(TrainCallback(trainer))
+    
     return trainer, dataset.predict_dataset
+
+
+class TrainCallback(TrainerCallback):
+    def  __init__(self, trainer) -> None:
+        super().__init__()
+        self._trainer = trainer
+    
+    def on_epoch_end(self, args, state, control, **kwargs):
+        if control.should_evaluate:
+            control_copy = deepcopy(control)
+            self._trainer.evaluate(eval_dataset=self._trainer.train_dataset, metric_key_prefix="train")
+            return control_copy
