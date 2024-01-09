@@ -47,6 +47,24 @@ def spearman_corrcoef(predictions, labels) -> dict:
     return {"spearmanr": spearman_corrcoef}
 
 
+def preprocess_invalid(predictions, labels, num_classes: int):
+    """Preprocess invalid value."""
+    def binary_reverse(labels):
+        return ['0' if label == '1' else '1' for label in labels]
+    
+    labels, predictions = np.asarray(labels), np.asarray(predictions)
+    # Get indices of invalid predictions
+    logicals = [predictions != str(num) for num in range(num_classes)]
+    invalid_idx_mask = np.all(logicals, axis=0)
+    # For any prediction != 0 or 1 or ..., we set the prediction to the opposite of its corresponding labels.
+    predictions[invalid_idx_mask] = binary_reverse(labels[invalid_idx_mask])
+    labels = labels.astype(np.int32)
+    predictions = predictions.astype(np.int32)
+    
+    return predictions, labels
+
+
+
 def f1_score_with_invalid(predictions, labels) -> dict:
     """Computes F1 score,  with any prediction != 0 or 1 is counted as incorrect.
     Args:
@@ -55,16 +73,7 @@ def f1_score_with_invalid(predictions, labels) -> dict:
     Returns:
       F1 score, where any prediction != 0 or 1 is counted as wrong.
     """
-    def binary_reverse(labels):
-        return ['0' if label == '1' else '1' for label in labels]
-    
-    labels, predictions = np.asarray(labels), np.asarray(predictions)
-    # Get indices of invalid predictions
-    invalid_idx_mask = np.logical_and(predictions != '0', predictions != '1')
-    # For any prediction != 0 or 1, we set the prediction to the opposite of its corresponding labels.
-    predictions[invalid_idx_mask] = binary_reverse(labels[invalid_idx_mask])
-    labels = labels.astype(np.int32)
-    predictions = predictions.astype(np.int32)
+    predictions, labels = preprocess_invalid(predictions, labels, num_classes=2)
     return {"f1": 100 * sklearn.metrics.f1_score(labels, predictions)}
 
 
@@ -96,7 +105,8 @@ def exact_match(predictions, labels):
     return {"em": 100 * float(np.array_equal(labels, predictions))}
 
 
-def sklearn_metrics_wrapper(metric_str,
+def sklearn_metrics_wrapper(num_classes,
+                            metric_str,
                             metric_dict_str=None,
                             metric_post_process_fn=None,
                             **metric_fn_kwargs):
@@ -115,6 +125,7 @@ def sklearn_metrics_wrapper(metric_str,
         raise ValueError("sklearn.metrics does not have: %s" % metric_str)
 
     def fn(predictions, labels):
+        predictions, labels = preprocess_invalid(predictions, labels, num_classes=num_classes)
         metric_fn = getattr(sklearn.metrics, metric_str)
         metric_val = metric_fn(labels, predictions, **metric_fn_kwargs)
         if metric_post_process_fn is not None:
@@ -126,6 +137,7 @@ def sklearn_metrics_wrapper(metric_str,
 def mean_multiclass_f1(num_classes, **metric_fn_kwargs):
     """Computes the unweighted average of the F1 per class."""
     return sklearn_metrics_wrapper(
+        num_classes,
         "fbeta_score",
         metric_dict_str="f1_multiclass",
         metric_post_process_fn=lambda x: 100 * x,
