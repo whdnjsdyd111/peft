@@ -186,7 +186,7 @@ class AbstractDataset(ABC):
             logger.info(f"Loading decoder model from {self.model_args.model_name_or_path}")
             tokenize_function = self.decoder_preprocess_function
             self.compute_metrics = self.compute_metrics_decoder
-            self.training_args.generation_max_length = self.max_seq_length + training_args.generation_max_length
+            self.training_args.generation_max_length = self.max_seq_length + self.training_args.generation_max_length
         else:
             raise NotImplementedError
         
@@ -276,6 +276,7 @@ class AbstractDataset(ABC):
     
     def compute_metrics_encoder(self, p: EvalPrediction):
         preds, labels = p
+        
         num_logits = preds.shape[-1]
         if num_logits == 1:
             preds = np.squeeze(preds)
