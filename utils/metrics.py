@@ -54,6 +54,12 @@ def preprocess_invalid(predictions, labels, num_classes: int):
     
     labels, predictions = np.asarray(labels), np.asarray(predictions)
     # Get indices of invalid predictions
+    if "int" in str(predictions.dtype):
+        labels = labels.astype(np.int32)
+        predictions = predictions.astype(np.int32)
+        
+        return predictions, labels
+    
     logicals = [predictions != str(num) for num in range(num_classes)]
     invalid_idx_mask = np.all(logicals, axis=0)
     # For any prediction != 0 or 1 or ..., we set the prediction to the opposite of its corresponding labels.
