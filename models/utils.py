@@ -3,20 +3,19 @@ import functools
 
 from enum import Enum
 from copy import deepcopy
+from typing import Optional
 
 from utils.general import colorstr, colorformat, emojis
+from .training import BaseTrainer, BaseSeq2SeqTrainer
 
 from transformers import (
     AutoTokenizer,
-    Trainer,
-    Seq2SeqTrainer,
     DataCollatorForSeq2Seq,
     AutoModelForSequenceClassification,
     AutoModelForSeq2SeqLM,
     AutoModelForCausalLM,
     AutoModelForTokenClassification,
     AutoModelForQuestionAnswering,
-    TrainerCallback
 )
 
 from peft import (
@@ -131,7 +130,7 @@ def get_trainer(model_args, data_args, training_args, peft_args, Dataset):
     model = get_model(model_args, peft_args, task_type, tokenizer, dataset)
     
     if task_type == TaskType.SEQ_CLS:
-        trainer = Trainer(
+        trainer = BaseTrainer(
             model=model,
             args=training_args,
             train_dataset=dataset.train_dataset if training_args.do_train else None,
@@ -141,7 +140,7 @@ def get_trainer(model_args, data_args, training_args, peft_args, Dataset):
             data_collator=dataset.data_collator
         )
     elif task_type == TaskType.SEQ_2_SEQ_LM or task_type == TaskType.CAUSAL_LM:
-        trainer = Seq2SeqTrainer(
+        trainer = BaseSeq2SeqTrainer(
             model=model,
             args=training_args,
             train_dataset=dataset.train_dataset if training_args.do_train else None,
@@ -151,22 +150,4 @@ def get_trainer(model_args, data_args, training_args, peft_args, Dataset):
             data_collator=DataCollatorForSeq2Seq(tokenizer, model=model)
         )
     
-    trainer.add_callback(TrainCallback(trainer))
-    
     return trainer, dataset.predict_dataset
-
-
-class TrainCallback(TrainerCallback):
-    def  __init__(self, trainer) -> None:
-        super().__init__()
-        self._trainer = trainer
-    
-    def on_epoch_end(self, args, state, control, **kwargs):
-        if control.should_evaluate:
-            control_copy = deepcopy(control)
-            self._trainer.evaluate(eval_dataset=self._trainer.train_dataset, metric_key_prefix="train")
-            return control_copy
-    
-    def on_predict(self, args, state, control, metrics, **kwargs):
-        # Save predict result.
-        self._trainer.log(metrics)
