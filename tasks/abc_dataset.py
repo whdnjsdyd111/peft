@@ -267,7 +267,13 @@ class AbstractDataset(ABC):
             model_inputs["attention_mask"][i] = [0] * (self.data_args.max_seq_length - len(sample_input_ids)) + model_inputs[
                 "attention_mask"
             ][i]
-            labels["input_ids"][i] = [-100] * (self.data_args.max_seq_length - len(sample_input_ids)) + label_input_ids
+            if (self.task == "glue" or self.task == "super_glue") and self.data_args.max_seq_length - len(sample_input_ids) < 0:
+                # Some data have a sequence longer than data_args.max_seq_length, 
+                # the label might not be processed correctly, 
+                # such as max_seq_length=3, label["input_ids"] = [-100, -100, -100, -100, 101, 1015, 102, 0]
+                labels["input_ids"][i] = label_input_ids[len(sample_input_ids) - self.data_args.max_seq_length:]
+            else:
+                labels["input_ids"][i] = [-100] * (self.data_args.max_seq_length - len(sample_input_ids)) + label_input_ids
             model_inputs["input_ids"][i] = torch.tensor(model_inputs["input_ids"][i][:self.data_args.max_seq_length])
             model_inputs["attention_mask"][i] = torch.tensor(model_inputs["attention_mask"][i][:self.data_args.max_seq_length])
             labels["input_ids"][i] = torch.tensor(labels["input_ids"][i][:self.data_args.max_seq_length])
