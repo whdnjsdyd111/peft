@@ -1154,7 +1154,7 @@ class PeftModelForCausalLM(PeftModel):
                 )
                 
             if model_kwargs.get("position_ids", None) is not None:
-                warnings.warn("Position ids are not supported for parameter efficient tuning. Ignoring position ids.")
+                # warnings.warn("Position ids are not supported for parameter efficient tuning. Ignoring position ids.")
                 model_kwargs["position_ids"] = None
             
             if kwargs.get("token_type_ids", None) is not None:

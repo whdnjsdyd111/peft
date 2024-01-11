@@ -75,7 +75,8 @@ if __name__ == "__main__":
     log_level = training_args.get_process_log_level()
     # logger.setLevel(log_level)
     datasets.utils.logging.set_verbosity(log_level)
-    transformers.utils.logging.set_verbosity(log_level)
+    transformers.utils.logging.set_verbosity_error()
+    # transformers.utils.logging.set_verbosity(log_level)
     transformers.utils.logging.enable_default_handler()
     transformers.utils.logging.enable_explicit_format()
     
