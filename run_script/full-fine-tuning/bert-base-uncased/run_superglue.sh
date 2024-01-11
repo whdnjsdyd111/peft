@@ -1,14 +1,16 @@
 export MODEL_NAME=bert-base-uncased
-export TASK_NAME=glue
+export TASK_NAME=super_glue
 export CUDA_VISIBLE_DEVICES=0
 
 max_seq_length=256
 bs=32
-epoch=20
+max_steps=30000
 weight_decay=1e-5
 
-for DATASET_NAME in cola mrpc rte stsb wnli; do
+for DATASET_NAME in boolq cb rte wic wsc copa record multirc; do
   for lr in 1e-4 5e-4 1e-3; do
+    if test "$DATASET_NAME" = "multirc"; then max_seq_length=348; fi
+    
     python run.py \
       --model_name_or_path $MODEL_NAME \
       --run_name $TASK_NAME-$DATASET_NAME-$MODEL_NAME-$lr \
@@ -17,20 +19,21 @@ for DATASET_NAME in cola mrpc rte stsb wnli; do
       --do_train \
       --do_eval \
       --do_predict \
-      --max_seq_length $max_seq_length \
       --per_device_train_batch_size $bs \
       --per_device_eval_batch_size $bs \
-      --learning_rate $lr \
-      --num_train_epochs $epoch \
-      --weight_decay $weight_decay \
-      --warmup_steps 500 \
+      --max_seq_length $max_seq_length \
       --output_dir checkpoints/FFT/$MODEL_NAME/$TASK_NAME-$DATASET_NAME-$lr/ \
       --overwrite_output_dir \
       --seed 1 \
-      --save_strategy no \
-      --evaluation_strategy epoch \
-      --save_strategy epoch \
+      --learning_rate $lr \
+      --save_strategy steps \
+      --evaluation_strategy steps \
+      --max_steps $max_steps \
+      --eval_steps 1000 \
+      --save_steps 1000 \
+      --warmup_steps 500 \
+      --weight_decay $weight_decay \
       --load_best_model_at_end \
-      --save_total_limit 1 
+      --save_total_limit 1;
   done;
 done
