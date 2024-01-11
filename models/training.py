@@ -331,6 +331,12 @@ class TrainCallback(TrainerCallback):
             self._trainer.evaluate(eval_dataset=self._trainer.train_dataset, metric_key_prefix="train")
             return control_copy
     
+    def on_step_end(self, args, state, control, **kwargs):
+        if control.should_evaluate:
+            control_copy = deepcopy(control)
+            self._trainer.evaluate(eval_dataset=self._trainer.train_dataset, metric_key_prefix="train")
+            return control_copy
+    
     def on_predict(self, args, state, control, metrics, **kwargs):
         # Save predict result.
         self._trainer.log(metrics)
