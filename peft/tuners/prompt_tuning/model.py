@@ -56,7 +56,7 @@ class PromptEmbedding(torch.nn.Module):
 
     Output Shape: (`batch_size`, `total_virtual_tokens`, `token_dim`)
     """
-    def __init__(self, config, ward_embedding):
+    def __init__(self, config, word_embedding):
         super().__init__()
         
         total_virtual_tokens = config.num_virtual_tokens * config.num_transformer_submodules
