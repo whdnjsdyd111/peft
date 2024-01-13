@@ -154,7 +154,7 @@ class GlueDataset(AbstractDataset):
         is_small = None
         if self.name in small_datasets_without_all_splits:
             is_small = True
-        elif self.name in large_dataset_without_all_splits:
+        elif self.name in large_datasets_without_all_splits:
             is_small = False
         
         if self.name == "mnli":
