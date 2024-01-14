@@ -43,6 +43,7 @@ from .tuners import (
     PrefixEncoder,
     PromptEmbedding,
     PromptEncoder,
+    ResidualPromptEmbedding,
 )
 from .utils import (
     SAFETENSORS_WEIGHTS_NAME,
@@ -70,6 +71,7 @@ PEFT_TYPE_TO_MODEL_MAPPING = {
     PeftType.PREFIX_TUNING: PrefixEncoder,
     PeftType.ADALORA: AdaLoraModel,
     PeftType.ADAPTION_PROMPT: AdaptionPromptModel,
+    PeftType.RESIDUAL_PROMPT_TUNING: ResidualPromptEmbedding,
 }
 
 
@@ -383,6 +385,8 @@ class PeftModel(PushToHubMixin, torch.nn.Module):
             prompt_encoder = PromptEncoder(config)
         elif config.peft_type == PeftType.PREFIX_TUNING:
             prompt_encoder = PrefixEncoder(config)
+        elif config.peft_type == PeftType.RESIDUAL_PROMPT_TUNING:
+            prompt_encoder = ResidualPromptEmbedding(config, self.word_embeddings)
         else:
             raise ValueError("Not supported")
 
@@ -1256,7 +1260,11 @@ class PeftModelForSeq2SeqLM(PeftModel):
             prefix_attention_mask = torch.ones(batch_size, peft_config.num_virtual_tokens).to(
                 decoder_attention_mask.device
             )
-            if peft_config.peft_type not in [PeftType.PROMPT_TUNING, PeftType.P_TUNING]:
+            if peft_config.peft_type not in [
+                PeftType.PROMPT_TUNING, 
+                PeftType.P_TUNING,
+                PeftType.RESIDUAL_PROMPT_TUNING,
+            ]:
                 decoder_attention_mask = torch.cat((prefix_attention_mask, decoder_attention_mask), dim=1)
 
         if kwargs.get("position_ids", None) is not None:
@@ -1285,7 +1293,11 @@ class PeftModelForSeq2SeqLM(PeftModel):
                 past_key_values=past_key_values,
                 **kwargs,
             )
-        elif peft_config.peft_type in [PeftType.PROMPT_TUNING, PeftType.P_TUNING]:
+        elif peft_config.peft_type in [
+            PeftType.PROMPT_TUNING, 
+            PeftType.P_TUNING, 
+            PeftType.RESIDUAL_PROMPT_TUNING
+        ]:
             if inputs_embeds is None:
                 inputs_embeds = self.word_embeddings(input_ids)
             
@@ -1375,6 +1387,7 @@ class PeftModelForSeq2SeqLM(PeftModel):
                 elif peft_config.peft_type in [
                     PeftType.PROMPT_TUNING,
                     PeftType.P_TUNING,
+                    PeftType.RESIDUAL_PROMPT_TUNING,
                 ]:
                     kwargs = deepcopy(kwargs)
                     

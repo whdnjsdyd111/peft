@@ -47,6 +47,11 @@ from .tuners import (
     PromptEncoderReparameterizationType,
     PromptTuningConfig,
     PromptTuningInit,
+    ResidualPromptTuningConfig, 
+    ResidualPromptTuningInit, 
+    ResidualPromptTuningReparameterizationType,
+    ResidualPromptEmbedding, 
+    ResidualMLP,
 )
 from .utils import (
     TRANSFORMERS_MODELS_TO_PREFIX_TUNING_POSTPROCESS_MAPPING,

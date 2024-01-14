@@ -29,6 +29,7 @@ class PeftType(str, enum.Enum):
     # LOHA = "LOHA"
     # LOKR = "LOKR"
     # OFT = "OFT"
+    RESIDUAL_PROMPT_TUNING = "RESIDUAL_PROMPT_TUNING"
 
 
 class TaskType(str, enum.Enum):

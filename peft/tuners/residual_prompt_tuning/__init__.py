@@ -12,10 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from .adaption_prompt import AdaptionPromptConfig, AdaptionPromptModel
-from .lora import LoraConfig, LoraModel, LoftQConfig
-from .adalora import AdaLoraConfig, AdaLoraModel
-from .p_tuning import PromptEncoder, PromptEncoderConfig, PromptEncoderReparameterizationType
-from .prefix_tuning import PrefixEncoder, PrefixTuningConfig
-from .prompt_tuning import PromptEmbedding, PromptTuningConfig, PromptTuningInit
-from .residual_prompt_tuning import ResidualPromptTuningConfig, ResidualPromptTuningInit, ResidualPromptTuningReparameterizationType, ResidualPromptEmbedding, ResidualMLP
+from .config import ResidualPromptTuningConfig, ResidualPromptTuningInit, ResidualPromptTuningReparameterizationType
+from .model import ResidualPromptEmbedding, ResidualMLP
+
+__all__ = ["ResidualPromptTuningConfig", "ResidualPromptTuningInit", "ResidualPromptTuningReparameterizationType", "ResidualPromptEmbedding", "ResidualMLP"]
