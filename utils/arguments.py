@@ -5,7 +5,14 @@ from dataclasses import dataclass, field
 from typing import Optional, Union, List
 
 from transformers import HfArgumentParser, TrainingArguments, Seq2SeqTrainingArguments
-from peft import PeftType, PromptTuningInit, LoftQConfig, PromptEncoderReparameterizationType
+from peft import (
+    PeftType, 
+    PromptTuningInit, 
+    LoftQConfig, 
+    PromptEncoderReparameterizationType, 
+    ResidualPromptTuningInit,
+    ResidualPromptTuningReparameterizationType
+)
 
 from tasks.utils import *
 
@@ -256,6 +263,30 @@ class DynamicPeftArguments:
     beta2: float = field(default=0.85, metadata={"help": "Hyperparameter of EMA."})
     orth_reg_weight: float = field(default=0.5, metadata={"help": "The orthogonal regularization coefficient."})
     total_step: Optional[int] = field(default=None, metadata={"help": "The total training steps."})
+    
+    # ResidualPromptTuningConfig
+    residual_prompt_tuning_init: Union[ResidualPromptTuningInit, str] = field(
+        default=ResidualPromptTuningInit.RANDOM,
+        metadata={"help": "How to initialize the prompt tuning parameters"},
+    )
+    residual_prompt_tuning_init_text: Optional[str] = field(default=None, metadata={
+            "help": "The text to use for prompt tuning initialization. Only used if prompt_tuning_init is `TEXT`"},
+    )
+    tokenizer_name_or_path: Optional[str] = field(default=None, metadata={
+            "help": "The tokenizer to use for prompt tuning initialization. Only used if prompt_tuning_init is `TEXT`"},
+    )
+    tokenizer_kwargs: Optional[dict] = field(default=None,metadata={
+            "help": ("The keyword arguments to pass to `AutoTokenizer.from_pretrained`. Only used if prompt_tuning_init is `TEXT`"),},
+    )
+    encoder_reparameterization_type: Union[str, ResidualPromptTuningReparameterizationType] = field(
+        default=ResidualPromptTuningReparameterizationType.MLP, metadata={"help": "How to reparameterize of the prompt."}
+    )
+    encoder_bottleneck_size: int = field(default=800, metadata={"help": "The bottleneck size of the mlp."})
+    encoder_num_layers: int = field(default=1, metadata={"help": "The number of layers of the mlp."})
+    encoder_dropout: int = field(default=0.0, metadata={"help": "The dropout of the mlp."})
+    encoder_layer_norm: bool = field(default=True, metadata={"help": "Set this the False if you don't use layer normalization"})
+    encoder_separate: bool = field(default=True, metadata={"help": "Use separate MLP for each prompt tokens"})
+    residual: bool = field(default=True, metadata={"help": "Set this the False if you don't use residual connection."})
 
 
 def get_args():
