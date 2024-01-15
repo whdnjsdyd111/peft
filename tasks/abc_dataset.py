@@ -14,6 +14,8 @@ from transformers import (
 import torch
 from datasets import load_dataset
 
+from utils.general import colorstr, colorformat, emojis
+
 logger = logging.getLogger(__name__)
 
 
@@ -209,6 +211,14 @@ class AbstractDataset(ABC):
     def split_dataset(self):
         # Split Dataset train, evaluate, pedict
         ...
+    
+    def print_dataset_numbers(self):
+        if self.training_args.do_train:
+            logger.info(f"{colorstr('bright_green', 'bold', 'number of train dataset')} : {len(self.train_dataset)}")
+        if self.training_args.do_eval:
+            logger.info(f"{colorstr('bright_green', 'bold', 'number of eval dataset')}  : {len(self.eval_dataset)}")
+        if self.training_args.do_predict:
+            logger.info(f"{colorstr('bright_green', 'bold', 'number of test dataset')}  : {len(self.predict_dataset)}")
     
     @abstractmethod
     def set_metrics(self):

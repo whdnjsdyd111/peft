@@ -95,6 +95,9 @@ class GlueDataset(AbstractDataset):
         # Split Dataset
         self.split_dataset()
         
+        # Print number of datasets
+        self.print_dataset_numbers()
+    
     def round_stsb_target(self, label):
         """STSB maps two sentences to a floating point number between 1 and 5
         representing their semantic similarity. Since we are treating all tasks as

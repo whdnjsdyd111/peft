@@ -127,6 +127,9 @@ class SuperGlueDataset(AbstractDataset):
         
         # Split Dataset
         self.split_dataset()
+        
+        # Print number of datasets
+        self.print_dataset_numbers()
 
     def preprocessor(self, example, add_prefix=True):
         extra_fields = {}
