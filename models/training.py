@@ -8,6 +8,7 @@ from transformers import (
     Trainer,
     Seq2SeqTrainer,
     TrainerCallback,
+    ProgressCallback,
     PreTrainedModel,
 )
 from transformers.modeling_utils import (
@@ -26,6 +27,7 @@ from transformers.utils import (
 )
 from transformers.integrations import deepspeed_load_checkpoint
 from peft import PeftModel
+from utils.general import colorstr, colorformat, emojis
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +70,10 @@ class BaseTrainer(Trainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.add_callback(TrainCallback(self))
+        for callback in self.callback_handler.callbacks:
+            if isinstance(callback, ProgressCallback):
+                self.remove_callback(callback)
+        self.add_callback(TrainProgressCallback(self))
     
     def _save(self, output_dir: Optional[str] = None, state_dict=None):
         # If we are executing this function, we are the process zero, so we don't check for that.
@@ -196,6 +202,10 @@ class BaseSeq2SeqTrainer(Seq2SeqTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.add_callback(TrainCallback(self))
+        for callback in self.callback_handler.callbacks:
+            if isinstance(callback, ProgressCallback):
+                self.remove_callback(callback)
+        self.add_callback(TrainProgressCallback(self))
     
     def _save(self, output_dir: Optional[str] = None, state_dict=None):
         # If we are executing this function, we are the process zero, so we don't check for that.
@@ -340,3 +350,25 @@ class TrainCallback(TrainerCallback):
     def on_predict(self, args, state, control, metrics, **kwargs):
         # Save predict result.
         self._trainer.log(metrics)
+
+
+class TrainProgressCallback(ProgressCallback):
+    def __init__(self, trainer) -> None:
+        super().__init__()
+        self._trainer = trainer
+    
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        # Log the metrics.
+        # Best metrics may be logged on color string to check best condition.
+        items = []
+        best = state.best_metric if state.best_metric is not None else 0
+        
+        for key, value in logs.items():
+            if key == "eval_" + args.metric_for_best_model and best < value:
+                items.append(f"'{colorstr('bright_cyan', 'bold', key)}': {colorstr('bright_cyan', 'bold', str(value))}")
+            else:
+                items.append(f"'{key}': {value}")
+        
+        if state.is_world_process_zero and self.training_bar is not None:
+            _ = logs.pop("total_flops", None)
+            self.training_bar.write('{' + ', '.join(items) + '}')
