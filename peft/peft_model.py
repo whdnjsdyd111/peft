@@ -421,9 +421,16 @@ class PeftModel(PushToHubMixin, torch.nn.Module):
         method.
         """
         prompt_encoder = self.prompt_encoder[adapter_name]
-        prompt_tokens = (
-            self.prompt_tokens[adapter_name].unsqueeze(0).expand(1, -1).to(prompt_encoder.embedding.weight.device)
-        )
+        
+        if peft_config.peft_type == PeftType.RESIDUAL_PROMPT_TUNING:
+            prompt_tokens = (
+                self.prompt_tokens[adapter_name].to(prompt_encoder.embedding.weight.device)
+            )
+        else:
+            prompt_tokens = (
+                self.prompt_tokens[adapter_name].unsqueeze(0).expand(1, -1).to(prompt_encoder.embedding.weight.device)
+            )
+
         if self.peft_config[adapter_name].peft_type == PeftType.PREFIX_TUNING:
             prompt_tokens = prompt_tokens[:, : self.peft_config[adapter_name].num_virtual_tokens]
 
