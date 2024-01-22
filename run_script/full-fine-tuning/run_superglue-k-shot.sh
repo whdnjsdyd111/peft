@@ -1,18 +1,21 @@
 export MODELS_NAME="bert-base-uncased bert-large-uncased gpt2-medium gpt2-large t5-base t5-large"
-export TASK_NAME=glue
+export TASK_NAME=super_glue
 export CUDA_VISIBLE_DEVICES=0
 
 max_seq_length=256
 bs=32
 max_steps=30000
 weight_decay=1e-5
+k_shot=10
 
 for MODEL_NAME in $MODELS_NAME; do
-  for DATASET_NAME in cola mrpc rte stsb wnli mnli qnli qqp sst2; do
+  for DATASET_NAME in boolq cb rte wic wsc copa record multirc; do
     for lr in 1e-5 1e-4 1e-3; do
+      if test "$DATASET_NAME" = "multirc"; then max_seq_length=348; fi
+      
       python run.py \
         --model_name_or_path $MODEL_NAME \
-        --run_name $TASK_NAME-$DATASET_NAME-$MODEL_NAME-$lr-10-shot \
+        --run_name $TASK_NAME-$DATASET_NAME-$MODEL_NAME-$lr-$k_shot-shot \
         --task_name $TASK_NAME \
         --dataset_name $DATASET_NAME \
         --do_train \
@@ -21,7 +24,7 @@ for MODEL_NAME in $MODELS_NAME; do
         --per_device_train_batch_size $bs \
         --per_device_eval_batch_size $bs \
         --max_seq_length $max_seq_length \
-        --output_dir checkpoints/FFT/$MODEL_NAME/$TASK_NAME-$DATASET_NAME-$lr-10-shot/ \
+        --output_dir checkpoints/FFT/$MODEL_NAME/$TASK_NAME-$DATASET_NAME-$lr-$k_shot-shot/ \
         --overwrite_output_dir \
         --seed 42 \
         --learning_rate $lr \
@@ -33,7 +36,8 @@ for MODEL_NAME in $MODELS_NAME; do
         --warmup_steps 500 \
         --weight_decay $weight_decay \
         --load_best_model_at_end \
-        --save_total_limit 1;
+        --save_total_limit 1 \
+        --k_shot_example $k_shot;
     done;
   done;
 done;
