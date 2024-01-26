@@ -52,9 +52,9 @@ To implement a new PEFT method, you need to add the following next files and cod
 
 # TODO
 
-- [x] Add Residual Prompt Tuning
+- [x] Add Residual Prompt Tuning (ref. https://github.com/arazd/ResidualPrompts)
   - Following the code in the paper and Due to their Separate MLP methods, the virtual token is fed to Encoder before expanding it to the batch size (i.e. methods: get_prompt and forward).
-- [ ] Add BitFit
+- [ ] Add BitFit (ref. https://github.com/benzakenelad/BitFit)
   - Some Models do not have bias-terms (e.g. T5)
   - We have to check that the there are a bias-terms in each layer
   - If there are not the bias-terms in each layer, We insert the trainable nn.Parameter as bias to each layer
@@ -72,7 +72,7 @@ for name, param in module.named_modules():
 
 - [ ] UniPELT
 - [ ] XPrompt
-  - In the XPrompt paper, they implemented importance score following [git](https://github.com/pmichel31415/fairseq)
+  - In the XPrompt paper, they implemented importance score following (ref. https://github.com/pmichel31415/fairseq)
   - So, We have to check how they implemented the importance score
 
 ```python
