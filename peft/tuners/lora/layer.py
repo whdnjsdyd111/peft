@@ -114,6 +114,61 @@ class LoraLayer:
 
         self._active_adapter = adapter_names
     
+    def enable_adapter(self, enabled: bool) -> None:
+        """Toggle the enabling and disabling of adapters
+        
+        Takes care of setting the requires_grad flag for the adapter weights
+        
+        Args:
+            enabled (bool): True to enable adapters, False to disable adapters
+        """
+        if enabled:
+            self.set_adapter(self.active_adapters)
+            self._disable_adapters = False
+        else:
+            # disable grads on all adapter layers
+            for layer_name in self.adapter_layer_names:
+                layer = getattr(self, layer_name)
+                layer.requires_grad_(False)
+            self._disable_adapters = True
+    
+    def delete_adapter(self, adapter_name: str) -> None:
+        """
+        Delete an adapter from the layer
+
+        This should be called on all adapter layers, or else we will get an inconsistent state.
+
+        This method will also set a new active adapter if the deleted adapter was an active adapter. It is important
+        that the new adapter is chosen in a deterministic way, so that the same adapter is chosen on all layers.
+
+        Args:
+            adapter_name (`str`): The name of the adapter to delete
+
+        """
+        for attr in self.adapter_layer_names + self.other_param_names:
+            if adapter_name in getattr(self, attr):
+                del getattr(self, attr)[adapter_name]
+
+        if adapter_name in self.active_adapters:
+            # choose a new active adapter
+            active_adapters = self.active_adapters[:]
+            active_adapters.remove(adapter_name)
+            if active_adapters:
+                self.set_adapter(active_adapters)
+            else:
+                # no active adapters left, set a new default adapter
+                # here we get the list of all adapters existing adapter names and choose the first one
+                remaining_adapters = self._all_available_adapter_names()
+                if not remaining_adapters:
+                    self.set_adapter([])
+                else:
+                    new_active_adapter = remaining_adapters[0]
+                    warnings.warn(
+                        f"Adapter {adapter_name} was active which is now deleted. Setting active adapter to "
+                        f"{new_active_adapter}."
+                    )
+                    self.set_adapter(remaining_adapters[0])
+    
     def update_layer(self, adapter_name, r, lora_alpha, lora_dropout, init_lora_weights):
         if r <= 0:
             raise ValueError(f"`r` should be a positive integer value but the value passed is {r}")
@@ -247,6 +302,17 @@ class LoraLayer:
                 self.scaling[active_adapter] = self.lora_alpha[active_adapter] / self.r[active_adapter]
             else:
                 self.scaling[active_adapter] /= scale
+
+    def _all_available_adapter_names(self) -> list[str]:
+        """Return a sorted list of all available adapter names"""
+        adapter_names = set()
+        for name in self.adapter_layer_names + self.other_param_names:
+            # we check each possible attribute and if it's a dict or ModuleDict, we assume that the keys are the adapter
+            # names
+            attr = getattr(self, name)
+            if hasattr(attr, "keys"):
+                adapter_names.update(attr.keys())
+        return sorted(adapter_names)
 
     @property
     def merged(self) -> bool:
