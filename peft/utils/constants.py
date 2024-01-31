@@ -133,12 +133,12 @@ TRANSFORMERS_MODELS_TO_ADALORA_TARGET_MODULES_MAPPING = {
     "llama": ["q_proj", "v_proj"],
     "bert": ["query", "value"],
     "roberta": ["query", "key", "value", "dense"],
-    # "xlm-roberta": ["query", "value"],
-    # "electra": ["query", "value"],
+    "xlm-roberta": ["query", "value"],
+    "electra": ["query", "value"],
     "deberta-v2": ["query_proj", "key_proj", "value_proj", "dense"],
     "gpt_bigcode": ["c_attn"],
     "deberta": ["in_proj"],
-    # "layoutlm": ["query", "value"],
+    "layoutlm": ["query", "value"],
 }
 
 COMMON_LAYERS_PATTERN = ["layers", "h", "block", "blocks", "layer"]
@@ -146,3 +146,4 @@ WEIGHTS_NAME = "adapter_model.bin"
 SAFETENSORS_WEIGHTS_NAME = "adapter_model.safetensors"
 CONFIG_NAME = "adapter_config.json"
 EMBEDDING_LAYER_NAMES = ["embed_tokens", "lm_head"]
+INCLUDE_LINEAR_LAYERS_SHORTHAND = "all-linear"

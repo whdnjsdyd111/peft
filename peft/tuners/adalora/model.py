@@ -19,6 +19,7 @@ from transformers.pytorch_utils import Conv1D
 
 from peft.import_utils import is_bnb_4bit_available, is_bnb_available
 from peft.tuners.lora import LoraConfig, LoraModel
+from peft.tuners.tuers_utils import BaseTunerLayer
 from peft.utils import (
     TRANSFORMERS_MODELS_TO_ADALORA_TARGET_MODULES_MAPPING,
     _freeze_adapter,
@@ -118,22 +119,20 @@ class AdaLoraModel(LoraModel):
         parent,
         **optional_kwargs,
     ):
-        loaded_in_8bit = optional_kwargs.get("loaded_in_8bit", False)
-        loaded_in_4bit = optional_kwargs.get("loaded_in_4bit", False)
-        if (loaded_in_8bit or loaded_in_4bit) and not is_bnb_available():
-            raise ImportError(
-                "To use AdaLora with 8-bit quantization, please install the `bitsandbytes` package. "
-                "You can install it with `pip install bitsandbytes`."
-            )
         kwargs = {
             "r": lora_config.init_r,
             "lora_alpha": lora_config.lora_alpha,
             "lora_dropout": lora_config.lora_dropout,
             "fan_in_fan_out": lora_config.fan_in_fan_out,
             "init_lora_weights": lora_config.init_lora_weights,
-            "loaded_in_8bit": loaded_in_8bit,
-            "loaded_in_4bit": loaded_in_4bit,
+            "loaded_in_8bit": getattr(self.model, "is_loaded_in_8bit", False),
+            "loaded_in_4bit": getattr(self.model, "is_loaded_in_4bit", False),
         }
+        if (kwargs["loaded_in_8bit"] or kwargs["loaded_in_4bit"]) and not is_bnb_available():
+            raise ImportError(
+                "To use AdaLora with 8-bit quantization, please install the `bitsandbytes` package. "
+                "You can install it with `pip install bitsandbytes`."
+            )
 
         quantization_config = get_quantization_config(self.model, method="gptq")
         if quantization_config is not None:
@@ -157,13 +156,21 @@ class AdaLoraModel(LoraModel):
 
     @staticmethod
     def _create_new_module(lora_config, adapter_name, target, **kwargs):
+        # avoid eager bnb import
+        if is_bnb_available():
+            import bitsandbytes as bnb
+
+            from .bnb import SVDLinear8bitLt
+        if is_bnb_4bit_available():
+            from .bnb import SVDLinear4bit
+        
         gptq_quantization_config = kwargs.get("gptq_quantization_config", None)
         AutoGPTQQuantLinear = get_auto_gptq_quant_linear(gptq_quantization_config)
 
         loaded_in_8bit = kwargs.pop("loaded_in_8bit", False)
         loaded_in_4bit = kwargs.pop("loaded_in_4bit", False)
 
-        if isinstance(target, LoraModel):
+        if isinstance(target, BaseTunerLayer):
             target_base_layer = target.get_base_layer()
         else:
             target_base_layer = target

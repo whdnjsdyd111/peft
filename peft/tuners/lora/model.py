@@ -28,9 +28,9 @@ from typing import List, Optional
 import torch
 import torch.nn as nn
 from tqdm import tqdm
-from transformers.pytorch_utils import Conv1D
 
 from peft.import_utils import is_bnb_4bit_available, is_bnb_available
+from peft.tuners.tuners_utils import BaseTuner, BaseTunerLayer, check_target_module_exists, onload_layer
 from peft.utils import (
     TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING,
     ModulesToSaveWrapper,
@@ -40,22 +40,12 @@ from peft.utils import (
     get_quantization_config,
 )
 
-from ...config import PeftConfig
 from .config import LoraConfig
 from .gptq import QuantLinear
-from .layer import Conv2d, Embedding, Linear, LoraLayer
+from .layer import Conv2d, LoraLayer, dispatch_default
 
 
-if is_bnb_available():
-    import bitsandbytes as bnb
-
-    from .bnb import Linear8bitLt
-
-if is_bnb_4bit_available():
-    from .bnb import Linear4bit
-
-
-class LoraModel(nn.Module):
+class LoraModel(BaseTuner):
     """
     Creates Low Rank Adapter (LoRA) model from a pretrained transformers model.
 
@@ -113,41 +103,8 @@ class LoraModel(nn.Module):
         - **model** ([`~transformers.PreTrainedModel`]) -- The model to be adapted.
         - **peft_config** ([`LoraConfig`]): The configuration of the Lora model.
     """
-    prefix: str = "lora_"
-    
-    def __init__(self, model, peft_config: Union[PeftConfig, dict[str, PeftConfig]], adapter_name: str) -> None:
-        super().__init__()
-        
-        self.model = model
-        
-        # For advanced developpers, if you want to attach multiple adapters to your
-        # model, just add a `peft_config` dict attribute to your model.
-        if not hasattr(self, "peft_config"):
-            self.peft_config = {adapter_name: peft_config} if isinstance(peft_config, PeftConfig) else peft_config
-        else:
-            logger.info(
-                "Already found a `peft_config` attribute in the model. This will lead to having multiple adapters"
-                " in the model. Make sure to know what you are doing!"
-            )
-            if isinstance(peft_config, PeftConfig):
-                self.peft_config[adapter_name] = peft_config
-            else:
-                # user is adding a dict of PeftConfigs
-                self.peft_config.update(peft_config)
-
-        self.active_adapter = adapter_name
-
-        # transformers models have a .config attribute, whose presence is assumed later on
-        if not hasattr(self, "config"):
-            self.config = {"model_type": "custom"}
-
-        self.inject_adapter(self.model, adapter_name)
-
-        # Copy the peft_config in the injected model.
-        self.model.peft_config = self.peft_config
-
-    def forward(self, *args: Any, **kwargs: Any):
-        return self.model.forward(*args, **kwargs)
+    def __init__(self, model, config, adapter_name) -> None:
+        super().__init__(model, config, adapter_name)
 
     def _check_new_adapter_config(self, config: LoraConfig) -> None:
         """
@@ -176,56 +133,41 @@ class LoraModel(nn.Module):
         target_name,
         parent,
         current_key,
-        **optional_kwargs,
     ):
         if current_key is None:
             raise ValueError("Current Key shouldn't be `None`")
+        
         # Regexp matching - Find key which matches current target_name in patterns provided
         pattern_keys = list(chain(lora_config.rank_pattern.keys(), lora_config.alpha_pattern.keys()))
         target_name_key = next(filter(lambda key: re.match(f".*\.{key}$", current_key), pattern_keys), current_key)
-
         r = lora_config.rank_pattern.get(target_name_key, lora_config.r)
         alpha = lora_config.alpha_pattern.get(target_name_key, lora_config.lora_alpha)
-        bias = hasattr(target, "bias") and target.bias is not None
+        
         kwargs = {
             "r": r,
             "lora_alpha": alpha,
             "lora_dropout": lora_config.lora_dropout,
             "fan_in_fan_out": lora_config.fan_in_fan_out,
             "init_lora_weights": lora_config.init_lora_weights,
+            "loaded_in_8bit": getattr(self.model, "is_loaded_in_8bit", False),
+            "loaded_in_4bit": getattr(self.model, "is_loaded_in_4bit", False),
         }
-        kwargs["loaded_in_8bit"] = optional_kwargs.pop("loaded_in_8bit", False)
-        kwargs["loaded_in_4bit"] = optional_kwargs.pop("loaded_in_4bit", False)
-        kwargs["bias"] = bias
 
         quantization_config = get_quantization_config(self.model, method="gptq")
         if quantization_config is not None:
             kwargs["gptq_quantization_config"] = quantization_config
 
-        # TODO: better deal with that
-        if isinstance(target, Conv2d):
-            target.update_layer_conv2d(
-                adapter_name,
-                r,
-                alpha,
-                lora_config.lora_dropout,
-                lora_config.init_lora_weights,
-            )
-        elif isinstance(target, Embedding):
-            target.update_layer_embedding(
-                adapter_name,
-                r,
-                alpha,
-                lora_config.lora_dropout,
-                lora_config.init_lora_weights,
-            )
-        elif isinstance(target, Linear):
+        # note: AdaLoraLayer is a subclass of LoraLayer, we need to exclude it
+        from peft.tuers.adalora import AdaLoraLayer
+        
+        if isinstance(target, LoraLayer) and not isinstance(target, AdaLoraLayer):
             target.update_layer(
                 adapter_name,
                 r,
                 alpha,
                 lora_config.lora_dropout,
                 lora_config.init_lora_weights,
+                lora_config.use_rslora,
             )
         else:
             new_module = self._create_new_module(lora_config, adapter_name, target, **kwargs)
@@ -284,94 +226,31 @@ class LoraModel(nn.Module):
 
     @staticmethod
     def _create_new_module(lora_config, adapter_name, target, **kwargs):
-        gptq_quantization_config = kwargs.get("gptq_quantization_config", None)
-        AutoGPTQQuantLinear = get_auto_gptq_quant_linear(gptq_quantization_config)
+        # Collect dispatcher functions to decide what backend to use for the replaced LoRA layer. The order matters,
+        # because the first match is always used. Therefore, the default layers should be checked last.
+        dispatchers = []
 
-        loaded_in_8bit = kwargs.pop("loaded_in_8bit", False)
-        loaded_in_4bit = kwargs.pop("loaded_in_4bit", False)
+        # avoid eager bnb import
+        if is_bnb_available():
+            from .bnb import dispatch_bnb_8bit
 
-        if isinstance(target, LoraLayer):
-            target_base_layer = target.get_base_layer()
-        else:
-            target_base_layer = target
+            dispatchers.append(dispatch_bnb_8bit)
 
-        megatron_core = None
-        if lora_config.megatron_config:
-            megatron_core = importlib.import_module(lora_config.megatron_core)
+        if is_bnb_4bit_available():
+            from .bnb import dispatch_bnb_4bit
 
-        if loaded_in_8bit and isinstance(target_base_layer, bnb.nn.Linear8bitLt):
-            eightbit_kwargs = kwargs.copy()
-            eightbit_kwargs.update(
-                {
-                    "has_fp16_weights": target.state.has_fp16_weights,
-                    "memory_efficient_backward": target.state.memory_efficient_backward,
-                    "threshold": target.state.threshold,
-                    "index": target.index,
-                }
-            )
-            new_module = Linear8bitLt(target, adapter_name, **eightbit_kwargs)
-        elif loaded_in_4bit and is_bnb_4bit_available() and isinstance(target_base_layer, bnb.nn.Linear4bit):
-            fourbit_kwargs = kwargs.copy()
-            fourbit_kwargs.update(
-                {
-                    "compute_dtype": target.compute_dtype,
-                    "compress_statistics": target.weight.compress_statistics,
-                    "quant_type": target.weight.quant_type,
-                }
-            )
-            new_module = Linear4bit(target, adapter_name, **fourbit_kwargs)
-        elif AutoGPTQQuantLinear is not None and isinstance(target_base_layer, AutoGPTQQuantLinear):
-            new_module = QuantLinear(target, adapter_name, **kwargs)
-            target.weight = target.qweight
-        elif isinstance(target_base_layer, torch.nn.Embedding):
-            embedding_kwargs = kwargs.copy()
-            embedding_kwargs.pop("fan_in_fan_out", None)
-            embedding_kwargs.update(lora_config.loftq_config)
-            new_module = Embedding(target, adapter_name, **embedding_kwargs)
-        elif isinstance(target_base_layer, torch.nn.Conv2d):
-            kwargs.update(lora_config.loftq_config)
-            new_module = Conv2d(target, adapter_name, **kwargs)
-        elif isinstance(target_base_layer, torch.nn.Linear):
-            if kwargs["fan_in_fan_out"]:
-                warnings.warn(
-                    "fan_in_fan_out is set to True but the target module is `torch.nn.Linear`. "
-                    "Setting fan_in_fan_out to False."
-                )
-                kwargs["fan_in_fan_out"] = lora_config.fan_in_fan_out = False
-            kwargs.update(lora_config.loftq_config)
-            new_module = Linear(target, adapter_name, **kwargs)
-        elif megatron_core and isinstance(
-            target_base_layer,
-            (megatron_core.tensor_parallel.ColumnParallelLinear, megatron_core.tensor_parallel.RowParallelLinear),
-        ):
-            from .tp_layer import LoraParallelLinear
+            dispatchers.append(dispatch_bnb_4bit)
 
-            megatron_kwargs = kwargs.copy()
-            megatron_config = lora_config.megatron_config
-            if isinstance(megatron_config, dict):
-                transformer_config_class = megatron_core.transformer.transformer_config.TransformerConfig
-                megatron_config = transformer_config_class(**lora_config.megatron_config)
-            megatron_kwargs["megatron_config"] = megatron_config
-            if megatron_kwargs["fan_in_fan_out"]:
-                warnings.warn(
-                    "fan_in_fan_out is set to True but the target module is `ColumnParallelLinear` "
-                    "or `RowParallelLinear`. "
-                    "Setting fan_in_fan_out to False."
-                )
-                megatron_kwargs["fan_in_fan_out"] = lora_config.fan_in_fan_out = False
-            new_module = LoraParallelLinear(
-                base_layer=target, adapter_name=adapter_name, backend=megatron_core.tensor_parallel, **megatron_kwargs
-            )
-        elif isinstance(target_base_layer, Conv1D):
-            if not kwargs["fan_in_fan_out"]:
-                warnings.warn(
-                    "fan_in_fan_out is set to False but the target module is `Conv1D`. "
-                    "Setting fan_in_fan_out to True."
-                )
-                kwargs["fan_in_fan_out"] = lora_config.fan_in_fan_out = True
-            kwargs.update(lora_config.loftq_config)
-            new_module = Linear(target, adapter_name, is_target_conv_1d_layer=True, **kwargs)
-        else:
+        dispatchers.extend([dispatch_gptq, dispatch_megatron, dispatch_default])
+
+        new_module = None
+        for dispatcher in dispatchers:
+            new_module = dispatcher(target, adapter_name, lora_config=lora_config, **kwargs)
+            if new_module is not None:  # first match wins
+                break
+
+        if new_module is None:
+            # no module could be matched
             raise ValueError(
                 f"Target module {target} is not supported. Currently, only the following modules are supported: "
                 "`torch.nn.Linear`, `torch.nn.Embedding`, `torch.nn.Conv2d`, `transformers.pytorch_utils.Conv1D`."
@@ -397,7 +276,7 @@ class LoraModel(nn.Module):
 
     def _set_adapter_layers(self, enabled: bool = True) -> None:
         for module in self.model.modules():
-            if isinstance(module, (LoraLayer, ModulesToSaveWrapper)):
+            if isinstance(module, (BaseTunerLayer, ModulesToSaveWrapper)):
                 module.enable_adapters(enabled)
 
     def enable_adapter_layers(self) -> None:
@@ -457,7 +336,6 @@ class LoraModel(nn.Module):
             if getattr(self.model, "quantization_method", None) == "gptq":
                 raise ValueError("Cannot merge LORA layers when the model is gptq quantized")
 
-        self._unloading_checks(adapter_names)
         key_list = [key for key, _ in self.model.named_modules() if self.prefix not in key]
         desc = "Unloading " + ("and merging " if merge else "") + "model"
         for key in tqdm(key_list, disable=not progressbar, desc=desc):
@@ -465,14 +343,15 @@ class LoraModel(nn.Module):
                 parent, target, target_name = _get_submodules(self.model, key)
             except AttributeError:
                 continue
-
-            if hasattr(target, "base_layer"):
-                if merge:
-                    target.merge(safe_merge=safe_merge, adapter_names=adapter_names)
-                self._replace_module(parent, target_name, target.get_base_layer(), target)
-            elif isinstance(target, ModulesToSaveWrapper):
-                # save any additional trainable modules part of `modules_to_save`
-                setattr(parent, target_name, target.modules_to_save[target.active_adapter])
+            
+            with onload_layer(target):
+                if hasattr(target, "base_layer"):
+                    if merge:
+                        target.merge(safe_merge=safe_merge, adapter_names=adapter_names)
+                    self._replace_module(parent, target_name, target.get_base_layer(), target)
+                elif isinstance(target, ModulesToSaveWrapper):
+                    # save any additional trainable modules part of `modules_to_save`
+                    setattr(parent, target_name, target.modules_to_save[target.active_adapter])
 
         return self.model
 
@@ -746,137 +625,3 @@ class LoraModel(nn.Module):
         model.
         """
         return self._unload_and_optionally_merge(merge=False)
-
-    def _unloading_checks(self, adapter_names: Optional[List[str]]):
-        adapters_to_consider = adapter_names or self.active_adapters
-        is_modules_to_save_available = any(
-            self.peft_config[adapter].modules_to_save for adapter in adapters_to_consider
-        )
-        if is_modules_to_save_available and len(adapters_to_consider) > 1:
-            raise ValueError("Cannot unload multiple adapters that specify `modules_to_save`.")
-    
-    def inject_adapter(self, model: nn.Module, adapter_name: str):
-        r"""
-        Creates adapter layers and replaces the target modules with the adapter layers. This method is called under the
-        hood by `peft.mapping.get_peft_model` if a non-prompt tuning adapter class is passed.
-
-        The corresponding PEFT config is directly retrieved from the `peft_config` attribute of the BaseTuner class.
-
-        Args:
-            model (`nn.Module`):
-                The model to be tuned.
-            adapter_name (`str`):
-                The adapter name.
-        """
-        peft_config = self.peft_config[adapter_name]
-        # Note: If possible, all checks should be performed *at the start of this method*.
-        # This way, we can raise early if something goes wrong, without leaving the model
-        # in a bad (half-initialized) state.
-        self._check_new_adapter_config(peft_config)
-
-        is_target_modules_in_base_model = False
-        key_list = [key for key, _ in model.named_modules()]
-
-        _check_for_modules_to_save = getattr(peft_config, "modules_to_save", None) is not None
-        _has_modules_to_save = False
-
-        model_config = getattr(model, "config", {"model_type": "custom"})
-        if hasattr(model_config, "to_dict"):
-            model_config = model_config.to_dict()
-
-        peft_config = self._prepare_adapter_config(peft_config, model_config)
-
-        for key in key_list:
-            # Check for modules_to_save in case
-            if _check_for_modules_to_save and any(
-                key.endswith(f"{module_to_save}") for module_to_save in peft_config.modules_to_save
-            ):
-                # Optionally set the modules to save
-                parent, target, target_name = _get_submodules(model, key)
-
-                if not isinstance(target, ModulesToSaveWrapper):
-                    new_module = ModulesToSaveWrapper(target, adapter_name)
-                    setattr(parent, target_name, new_module)
-                else:
-                    target.update(adapter_name)
-
-                _has_modules_to_save = True
-                continue
-
-            if not self._check_target_module_exists(peft_config, key):
-                continue
-
-            is_target_modules_in_base_model = True
-            parent, target, target_name = _get_submodules(model, key)
-
-            optional_kwargs = {
-                "loaded_in_8bit": getattr(model, "is_loaded_in_8bit", False),
-                "loaded_in_4bit": getattr(model, "is_loaded_in_4bit", False),
-                "current_key": key,
-            }
-            self._create_and_replace(peft_config, adapter_name, target, target_name, parent, **optional_kwargs)
-
-        if not is_target_modules_in_base_model:
-            raise ValueError(
-                f"Target modules {peft_config.target_modules} not found in the base model. "
-                f"Please check the target modules and try again."
-            )
-
-        self._mark_only_adapters_as_trainable()
-
-        if self.peft_config[adapter_name].inference_mode:
-            for n, p in self.model.named_parameters():
-                if adapter_name in n:
-                    p.requires_grad = False
-
-        if _has_modules_to_save:
-            if not hasattr(model, "modules_to_save"):
-                model.modules_to_save = set(peft_config.modules_to_save)
-            else:
-                model.modules_to_save.update(set(peft_config.modules_to_save))
-    
-    @property
-    def active_adapters(self) -> list[str]:
-        if isinstance(self.active_adapter, str):
-            return [self.active_adapter]
-        # is already a list of str
-        return self.active_adapter
-
-
-def check_target_module_exists(config, key: str) -> bool | re.Match[str] | None:
-    """A helper method to check if the passed module's key name matches any of the target modules in the adapter_config.
-
-    Args:
-        config (`LoraConfig` | `LycorisConfig`): A config to match target modules from
-        key (`str`): A key to search any matches in config
-
-    Returns:
-        `bool` | `re.Match[str]` | `None`: True of match object if key matches any target modules from config, False or
-        None if no match found
-    """
-    if isinstance(config.target_modules, str):
-        target_module_found = re.fullmatch(config.target_modules, key)
-    else:
-        target_module_found = key in config.target_modules or any(
-            key.endswith(f".{target_key}") for target_key in config.target_modules
-        )
-        is_using_layer_indexes = getattr(config, "layers_to_transform", None) is not None
-        layer_indexing_pattern = getattr(config, "layers_pattern", None)
-
-        if is_using_layer_indexes and target_module_found:
-            layers_pattern = COMMON_LAYERS_PATTERN if layer_indexing_pattern is None else layer_indexing_pattern
-            layers_pattern = [layers_pattern] if isinstance(layers_pattern, str) else layers_pattern
-
-            for pattern in layers_pattern:
-                layer_index = re.match(f".*.{pattern}\.(\d+)\.*", key)
-                if layer_index is not None:
-                    layer_index = int(layer_index.group(1))
-                    if isinstance(config.layers_to_transform, int):
-                        target_module_found = layer_index == config.layers_to_transform
-                    else:
-                        target_module_found = layer_index in config.layers_to_transform
-
-                    break
-                else:
-                    target_module_found = False
-    return target_module_found
