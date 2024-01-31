@@ -18,6 +18,7 @@ from typing import Any, List, Optional, Union
 
 import torch
 import torch.nn as nn
+from transformers.pytorch_utils import Conv1D
 
 from peft.tuners.tuners_utils import BaseTunerLayer
 
@@ -43,11 +44,20 @@ class BitFitLayer(BaseTunerLayer):
             out_features = base_layer.out_features
         elif isinstance(base_layer, nn.LayerNorm):
             out_features = base_layer.normalized_shape[0]
+        elif isinstance(base_layer, nn.Conv2d) or isinstance(base_layer, nn.Conv1d):
+            out_features = base_layer.out_channels
+        elif isinstance(base_layer, Conv1D):
+            _, out_features = (
+                base_layer.weight.ds_shape if hasattr(base_layer.weight, "ds_shape") else base_layer.weight.shape
+            )
+        elif isinstance(base_layer, nn.Embedding):
+            out_features = base_layer.embedding_dim
         else:
             raise ValueError(f"Unsupported layer type {type(base_layer)}")
         
         if hasattr(base_layer, "bias"):
-            self.bias_adapters[self._original_bias] = base_layer.bias
+            if base_layer.bias is not None:
+                self.bias_adapters[self._original_bias] = base_layer.bias
         else:
             raise ValueError(f"Unsupported layer type {type(base_layer)}")
         

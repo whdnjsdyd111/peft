@@ -141,6 +141,27 @@ TRANSFORMERS_MODELS_TO_ADALORA_TARGET_MODULES_MAPPING = {
     "layoutlm": ["query", "value"],
 }
 
+TRANSFORMERS_MODELS_TO_BITFIT_BIAS_MODULES_MAPPING = {
+    "t5": ["q", "k", "v", "o", "wi", "wo"],
+    "mt5": ["q", "k", "v", "o", "wi", "wo"],
+    "bart": ["k_proj", "v_proj", "q_proj", "out_proj", "self_attn_layer_norm", "fc1", "fc2", "final_layer_norm", "layernorm_embedding"],
+    "gpt2": ["ln_1", "c_attn", "attn.c_proj", "ln_2", "c_fc", "mlp.c_proj"],
+    "bloom": ["word_embeddings_layernorm", "input_layernorm", "query_key_value", "dense", "post_attention_layernorm", "dense_h_to_4h", "dense_4h_to_h"],
+    "opt": ["project_out", "project_in", "k_proj", "v_proj",  "q_proj", "out_proj", "self_attn_layer_norm", "fc1", "fc2", "final_layer_norm"],
+    "gptj": ["ln_1", "k_proj", "v_proj", "q_proj", "out_proj", "fc_in", "fc_out"],
+    "gpt_neox": ["input_layernorm", "post_attention_layernorm", "query_key_value", "dense", "dense_h_to_4h", "dense_4h_to_h", "final_layer_norm"],
+    "gpt_neo": ["ln_1", "k_proj", "v_proj", "q_proj", "out_proj", "ln_2", "c_fc", "c_proj"],
+    "bert": {"embeddings.LayerNorm", "query", "key", "value", "output.dense", "output.LayerNorm", "intermediate.dense"}, # -----
+    "roberta": ["embeddings.LayerNorm", "query", "key", "value", "output.dense", "output.LayerNorm", "intermediate.dense"],
+    "xlm-roberta": ["embeddings.LayerNorm", "query", "key", "value", "output.dense", "output.LayerNorm", "intermediate.dense"],
+    "electra": ["embeddings.LayerNorm", "query", "key", "value", "output.dense", "output.LayerNorm", "intermediate.dense"],
+    "deberta-v2": ["embeddings.LayerNorm", "query_proj", "key_proj", "value_proj", "output.dense", "output.LayerNorm", "intermediate.dense", "encoder.LayerNorm", "conv.conv", "conv.LayerNorm"],
+    "deberta": ["embeddings.LayerNorm", "in_proj", "pos_proj", "pos_q_proj", "output.dense", "output.LayerNorm", "intermediate.dense"],
+    "layoutlm": ["embeddings.LayerNorm", "query", "key", "value", "output.dense", "output.LayerNorm", "intermediate.dense"],
+    "llama": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"], # LlamaRMSNorm
+    "gpt_bigcode": ["ln_1", "c_attn", "attn.c_proj", "ln_2", "c_fc", "mlp.c_proj"],
+}
+
 COMMON_LAYERS_PATTERN = ["layers", "h", "block", "blocks", "layer"]
 WEIGHTS_NAME = "adapter_model.bin"
 SAFETENSORS_WEIGHTS_NAME = "adapter_model.safetensors"
