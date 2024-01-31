@@ -13,8 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import re
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, Union
+from contextlib import contextmanager
+from typing import Any, List, Optional, Union, Dict, Tuple
 
 import torch
 import torch.nn as nn
@@ -66,7 +68,7 @@ class BaseTuner(nn.Module, ABC):
             double-check that the `config.target_modules` where specified correctly.
     """
     
-    def __init__(self, model, peft_config: Union[PeftConfig, dict[str, PeftConfig]], adapter_name: str, prefix: str) -> None:
+    def __init__(self, model, peft_config: Union[PeftConfig, Dict[str, PeftConfig]], adapter_name: str, prefix: str) -> None:
         super().__init__()
         
         self.model = model
@@ -95,7 +97,7 @@ class BaseTuner(nn.Module, ABC):
         self.model.peft_config = self.peft_config
     
     @property
-    def active_adapters(self) -> list[str]:
+    def active_adapters(self) -> List[str]:
         if isinstance(self.active_adapter, str):
             return [self.active_adapter]
         # is already a list of str
@@ -265,7 +267,7 @@ class BaseTuner(nn.Module, ABC):
             else:
                 model.modules_to_save.update(set(peft_config.modules_to_save))
     
-    def merge_adapter(self, adapter_names: Optional[list[str]] = None) -> None:
+    def merge_adapter(self, adapter_names: Optional[List[str]] = None) -> None:
         """
         This method merges the adapter layers into the base model.
 
@@ -318,18 +320,18 @@ class BaseTunerLayer(ABC):
     active_adapter = None
     
     # All names of layers that may contain adapter (trainable) weights
-    adapter_layer_names: tuple[str] = ()
+    adapter_layer_names: Tuple[str] = ()
     # All names of other parameters that may contain adapter-related parameters
-    other_param_names: tuple[str] = ()
+    other_param_names: Tuple[str] = ()
 
     # indicates whether all adapters should be disabled
     _disable_adapters: bool = False
 
     # the currently active adapter(s)
-    _active_adapter: str | list[str] = "default"
+    _active_adapter: Union[str, List[str]] = "default"
 
     # List all merged adapters
-    merged_adapters: list[str] = []
+    merged_adapters: List[str] = []
     
     def get_base_layer(self) -> nn.Module:
         """
@@ -359,7 +361,7 @@ class BaseTunerLayer(ABC):
             weight = base_layer.weight
         return weight
     
-    def merge(self, safe_merge: bool = False, adapter_names: Optional[list[str]] = None) -> None:
+    def merge(self, safe_merge: bool = False, adapter_names: Optional[List[str]] = None) -> None:
         raise NotImplementedError
 
     def unmerge(self) -> None:
@@ -406,7 +408,7 @@ class BaseTunerLayer(ABC):
         """
         ...
     
-    def _all_available_adapter_names(self) -> list[str]:
+    def _all_available_adapter_names(self) -> List[str]:
         """Return a sorted list of all available adapter names"""
         adapter_names = set()
         for name in self.adapter_layer_names + self.other_param_names:
@@ -506,7 +508,7 @@ def onload_layer(layer):
         layer.base_layer._hf_hook.post_forward(layer.base_layer, torch.tensor([]))
 
 
-def check_target_module_exists(config, key: str) -> bool | re.Match[str] | None:
+def check_target_module_exists(config, key: str) -> Union[bool, re.Match, None]:
     """A helper method to check if the passed module's key name matches any of the target modules in the adapter_config.
 
     Args:

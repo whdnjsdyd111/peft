@@ -104,7 +104,7 @@ class LoraModel(BaseTuner):
         - **peft_config** ([`LoraConfig`]): The configuration of the Lora model.
     """
     def __init__(self, model, config, adapter_name) -> None:
-        super().__init__(model, config, adapter_name)
+        super().__init__(model, config, adapter_name, "lora_")
 
     def _check_new_adapter_config(self, config: LoraConfig) -> None:
         """

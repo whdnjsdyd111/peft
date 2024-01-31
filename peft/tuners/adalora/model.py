@@ -19,7 +19,7 @@ from transformers.pytorch_utils import Conv1D
 
 from peft.import_utils import is_bnb_4bit_available, is_bnb_available
 from peft.tuners.lora import LoraConfig, LoraModel
-from peft.tuners.tuers_utils import BaseTunerLayer
+from peft.tuners.tuners_utils import BaseTunerLayer
 from peft.utils import (
     TRANSFORMERS_MODELS_TO_ADALORA_TARGET_MODULES_MAPPING,
     _freeze_adapter,
