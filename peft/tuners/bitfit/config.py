@@ -30,7 +30,7 @@ class BitFitConfig(PeftConfig):
             and saved in the final checkpoints.
     """
     target_modules: Optional[Union[List[str], str]] = field(
-        default=["all"],
+        default=None,
         metadata={
             "help": "List of module names or regex expression of the module names to replate with BitFit."
             "For example, ['q', 'v'] or '.*decoder.*(SelfAttention|EncDecAttention).*(q|v)$' "
@@ -44,3 +44,9 @@ class BitFitConfig(PeftConfig):
             "the final layer `classifier/score` are randomly initialized and as such need to be trainable and saved."
         },
     )
+    
+    def __post_init__(self):
+        self.peft_type = PeftType.BITFIT
+        self.target_modules = (
+            set(self.target_modules) if isinstance(self.target_modules, list) else self.target_modules
+        )
