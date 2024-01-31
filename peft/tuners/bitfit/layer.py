@@ -46,7 +46,7 @@ class BitFitLayer(BaseTunerLayer):
         else:
             raise ValueError(f"Unsupported layer type {type(base_layer)}")
         
-        if hasattr(base_layer, "bias") and base_layer.bias is not None:
+        if hasattr(base_layer, "bias"):
             self.bias_adapters[self._original_bias] = base_layer.bias
         else:
             raise ValueError(f"Unsupported layer type {type(base_layer)}")
