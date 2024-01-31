@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import copy
+import warnings
 from typing import Any, List, Optional, Union
 
 import torch
@@ -24,6 +25,9 @@ from peft.tuners.tuners_utils import BaseTunerLayer
 class BitFitLayer(BaseTunerLayer):
     # All names of layers that may contain (trainable) adapter parameter (bias)
     adapter_layer_names = ("bias_adapters", )
+    
+    # Save and Fix the original bias
+    _original_bias = "original_bias"
     
     def __init__(self, base_layer: nn.Module, **kwargs):
         self.bitfit_base_layer = base_layer
@@ -43,7 +47,7 @@ class BitFitLayer(BaseTunerLayer):
             raise ValueError(f"Unsupported layer type {type(base_layer)}")
         
         if hasattr(base_layer, "bias") and base_layer.bias is not None:
-            self._orig_bias = base_layer.bias
+            self.bias_adapters[self._original_bias] = base_layer.bias
         else:
             raise ValueError(f"Unsupported layer type {type(base_layer)}")
         
@@ -68,7 +72,6 @@ class BitFitLayer(BaseTunerLayer):
         else:
             self.bias_adapters[adapter_name] = nn.Parameter(torch.zeros(self.out_features))
         
-
         weight = getattr(self.bitfit_base_layer, "weight", None)
         if weight is not None:
             # the layer is already completely initialized, this is an update
@@ -93,6 +96,23 @@ class BitFitLayer(BaseTunerLayer):
         else:
             raise ValueError(f"Unsupported layer type {type(bitfit_base_layer)}")
 
+    def delete_adapter(self, adapter_name: str) -> None:
+        """
+        Delete an adapter from the layer
+        
+        Maintain the original bias
+
+        Args:
+            adapter_name (`str`): The name of the adapter to delete
+        """
+        if adapter_name == _original_bias:
+            warnings.warn(
+                f"Adapter {adapter_name} is not deleted because it it the original bias. "
+            )
+            return
+        
+        super().delete_adapter(adapter_name)
+
     @property
     def has_register(self) -> bool:
         # if layer has register_parameter
@@ -103,10 +123,7 @@ class BitFitLayer(BaseTunerLayer):
     @property
     def original_bias(self):
         # use a property to ensure that original bias is not set directly, fix the original bias
-        if hasattr(self, "_orig_bias"):
-            return self._orig_bias
-        else:
-            return None
+        return self.bias_adapters.get(self._original_bias)
 
 
 class BitFitModule(nn.Module, BitFitLayer):
