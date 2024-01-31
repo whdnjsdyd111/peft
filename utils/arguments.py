@@ -248,6 +248,21 @@ class DynamicPeftArguments:
         default=True,
         metadata={"help": "Whether to initialize the weights of the Lora layers."},
     )
+    target_modules: Optional[Union[List[str], str]] = field(
+        default=None,
+        metadata={
+            "help": "List of module names or regex expression of the module names to replace with Lora."
+            "For example, ['q', 'v'] or '.*decoder.*(SelfAttention|EncDecAttention).*(q|v)$' "
+        },
+    ),
+    modules_to_save: Optional[List[str]] = field(
+        default=None,
+        metadata={
+            "help": "List of modules apart from LoRA layers to be set as trainable and saved in the final checkpoint. "
+            "For example, in Sequence Classification or Token Classification tasks, "
+            "the final layer `classifier/score` are randomly initialized and as such need to be trainable and saved."
+        },
+    ),
     
     # AdaptionPromptConfig
     adapter_len: int = field(default=None, metadata={"help": "Number of adapter tokens to insert"})
@@ -287,6 +302,23 @@ class DynamicPeftArguments:
     encoder_layer_norm: bool = field(default=True, metadata={"help": "Set this the False if you don't use layer normalization"})
     encoder_separate: bool = field(default=True, metadata={"help": "Use separate MLP for each prompt tokens"})
     residual: bool = field(default=True, metadata={"help": "Set this the False if you don't use residual connection."})
+    
+    # BitFitConfig
+    target_modules: Optional[Union[List[str], str]] = field(
+        default=None,
+        metadata={
+            "help": "List of module names or regex expression of the module names to replace with Lora."
+            "For example, ['q', 'v'] or '.*decoder.*(SelfAttention|EncDecAttention).*(q|v)$' "
+        },
+    ),
+    modules_to_save: Optional[List[str]] = field(
+        default=None,
+        metadata={
+            "help": "List of modules apart from LoRA layers to be set as trainable and saved in the final checkpoint. "
+            "For example, in Sequence Classification or Token Classification tasks, "
+            "the final layer `classifier/score` are randomly initialized and as such need to be trainable and saved."
+        },
+    ),
 
 
 def get_args():

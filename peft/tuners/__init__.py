@@ -19,3 +19,4 @@ from .p_tuning import PromptEncoder, PromptEncoderConfig, PromptEncoderReparamet
 from .prefix_tuning import PrefixEncoder, PrefixTuningConfig
 from .prompt_tuning import PromptEmbedding, PromptTuningConfig, PromptTuningInit
 from .residual_prompt_tuning import ResidualPromptTuningConfig, ResidualPromptTuningInit, ResidualPromptTuningReparameterizationType, ResidualPromptEmbedding, ResidualMLP
+from .bitfit import BitFitConfig, BitFitModel

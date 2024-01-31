@@ -52,6 +52,8 @@ from .tuners import (
     ResidualPromptTuningReparameterizationType,
     ResidualPromptEmbedding, 
     ResidualMLP,
+    BitFitConfig,
+    BitFitModel,
 )
 from .utils import (
     TRANSFORMERS_MODELS_TO_PREFIX_TUNING_POSTPROCESS_MAPPING,

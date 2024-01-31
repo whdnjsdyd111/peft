@@ -44,6 +44,7 @@ from .tuners import (
     PromptEmbedding,
     PromptEncoder,
     ResidualPromptEmbedding,
+    BitFitModel,
 )
 from .utils import (
     SAFETENSORS_WEIGHTS_NAME,
@@ -72,6 +73,7 @@ PEFT_TYPE_TO_MODEL_MAPPING = {
     PeftType.ADALORA: AdaLoraModel,
     PeftType.ADAPTION_PROMPT: AdaptionPromptModel,
     PeftType.RESIDUAL_PROMPT_TUNING: ResidualPromptEmbedding,
+    PeftType.BITFIT: BitFitModel,
 }
 
 
