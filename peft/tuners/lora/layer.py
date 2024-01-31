@@ -149,46 +149,6 @@ class LoraLayer(BaseTunerLayer):
                 self.scaling[active_adapter] = self.lora_alpha[active_adapter] / self.r[active_adapter]
             else:
                 self.scaling[active_adapter] /= scale
-    
-    def set_adapter(self, adapter_names: Union[str, List[str]]) -> None:
-        """Set the active adapter(s).
-
-        Args:
-            adapter_name (`str` or `List[str]`): Name of the adapter(s) to be activated.
-        """
-        if isinstance(adapter_names, str):
-            adapter_names = [adapter_names]
-
-        # Deactivate grads on the inactive adapter and activate grads on the active adapter
-        for layer_name in self.adapter_layer_names:
-            module_dict = getattr(self, layer_name)
-            for key, layer in module_dict.items():
-                if key in adapter_names:
-                    # Note: It is possible that not a single layer is called with requires_grad_(True) here. This may
-                    # happen if a completely different adapter layer is being activated.
-                    layer.requires_grad_(True)
-                else:
-                    layer.requires_grad_(False)
-
-        self._active_adapter = adapter_names
-    
-    def enable_adapters(self, enabled: bool) -> None:
-        """Toggle the enabling and disabling of adapters
-        
-        Takes care of setting the requires_grad flag for the adapter weights
-        
-        Args:
-            enabled (bool): True to enable adapters, False to disable adapters
-        """
-        if enabled:
-            self.set_adapter(self.active_adapters)
-            self._disable_adapters = False
-        else:
-            # disable grads on all adapter layers
-            for layer_name in self.adapter_layer_names:
-                layer = getattr(self, layer_name)
-                layer.requires_grad_(False)
-            self._disable_adapters = True
 
 
 # Below code is based on https://github.com/microsoft/LoRA/blob/main/loralib/layers.py
