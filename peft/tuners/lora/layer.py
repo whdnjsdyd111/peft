@@ -172,7 +172,7 @@ class LoraLayer(BaseTunerLayer):
 
         self._active_adapter = adapter_names
     
-    def enable_adapter(self, enabled: bool) -> None:
+    def enable_adapters(self, enabled: bool) -> None:
         """Toggle the enabling and disabling of adapters
         
         Takes care of setting the requires_grad flag for the adapter weights

@@ -12,9 +12,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import Any, Optional
+
 import torch
 
-from .layer import LoraLayer
+from peft.tuners.lora.layer import LoraLayer
+from peft.tuners.tuners_utils import BaseTunerLayer
+from peft.utils import get_auto_gptq_quant_linear
 
 
 class QuantLinear(torch.nn.Module, LoraLayer):
@@ -34,6 +38,7 @@ class QuantLinear(torch.nn.Module, LoraLayer):
         # self.base_layer and self.quant_linear_module are the same; we need the former for consistency and the latter
         # for backwards compatibility
         self.quant_linear_module = base_layer
+        self._active_adapter = adapter_name
         self.update_layer(adapter_name, r, lora_alpha, lora_dropout, init_lora_weights)
     
     def forward(self, x: torch.Tensor):
@@ -66,3 +71,25 @@ class QuantLinear(torch.nn.Module, LoraLayer):
     def __repr__(self) -> str:
         rep = super().__repr__()
         return "lora." + rep
+
+
+def dispatch_gptq(
+    target: torch.nn.Module,
+    adapter_name: str,
+    **kwargs: Any,
+) -> Optional[torch.nn.Module]:
+    new_module = None
+
+    if isinstance(target, BaseTunerLayer):
+        target_base_layer = target.get_base_layer()
+    else:
+        target_base_layer = target
+
+    gptq_quantization_config = kwargs.get("gptq_quantization_config", None)
+    AutoGPTQQuantLinear = get_auto_gptq_quant_linear(gptq_quantization_config)
+
+    if AutoGPTQQuantLinear is not None and isinstance(target_base_layer, AutoGPTQQuantLinear):
+        new_module = QuantLinear(target, adapter_name, **kwargs)
+        target.qweight = target_base_layer.qweight
+
+    return new_module

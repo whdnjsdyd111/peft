@@ -41,8 +41,9 @@ from peft.utils import (
 )
 
 from .config import LoraConfig
-from .gptq import QuantLinear
+from .gptq import dispatch_gptq
 from .layer import Conv2d, LoraLayer, dispatch_default
+from .tp_layer import dispatch_megatron
 
 
 class LoraModel(BaseTuner):
@@ -158,7 +159,7 @@ class LoraModel(BaseTuner):
             kwargs["gptq_quantization_config"] = quantization_config
 
         # note: AdaLoraLayer is a subclass of LoraLayer, we need to exclude it
-        from peft.tuers.adalora import AdaLoraLayer
+        from peft.tuners.adalora import AdaLoraLayer
         
         if isinstance(target, LoraLayer) and not isinstance(target, AdaLoraLayer):
             target.update_layer(
@@ -203,8 +204,8 @@ class LoraModel(BaseTuner):
                 weight = child.qweight if hasattr(child, "qweight") else child.weight
                 module.to(weight.device)
 
-    def _mark_only_adapters_as_trainable(self) -> None:
-        for n, p in self.model.named_parameters():
+    def _mark_only_adapters_as_trainable(self, model: nn.Module) -> None:
+        for n, p in model.named_parameters():
             if self.prefix not in n:
                 p.requires_grad = False
 
@@ -214,11 +215,11 @@ class LoraModel(BaseTuner):
                 continue
 
             if bias == "all":
-                for n, p in self.model.named_parameters():
+                for n, p in model.named_parameters():
                     if "bias" in n:
                         p.requires_grad = True
             elif bias == "lora_only":
-                for m in self.model.modules():
+                for m in model.modules():
                     if isinstance(m, LoraLayer) and hasattr(m, "bias") and m.bias is not None:
                         m.bias.requires_grad = True
             else:
