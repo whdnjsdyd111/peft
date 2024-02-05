@@ -1,6 +1,8 @@
 # peft
 LLM with peft methods
 
+This project is an implementation of the published paper by adding it to the HuggingFace code.
+
 # Add Peft Method
 
 To implement a new PEFT method, you need to add the following next files and codes
