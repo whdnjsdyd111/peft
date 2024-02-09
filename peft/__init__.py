@@ -54,6 +54,9 @@ from .tuners import (
     ResidualMLP,
     BitFitConfig,
     BitFitModel,
+    XPromptTuningConfig,
+    XPromptTuningInit,
+    XPromptEmbedding,
 )
 from .utils import (
     TRANSFORMERS_MODELS_TO_PREFIX_TUNING_POSTPROCESS_MAPPING,

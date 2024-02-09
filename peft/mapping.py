@@ -40,6 +40,7 @@ from .tuners import (
     ResidualPromptTuningConfig,
     BitFitConfig,
     BitFitModel,
+    XPromptEmbedding
 )
 from .utils import _prepare_prompt_learning_config
 
@@ -66,6 +67,7 @@ PEFT_TYPE_TO_CONFIG_MAPPING: Dict[str, PeftConfig] = {
     "ADALORA": AdaLoraConfig,
     "RESIDUAL_PROMPT_TUNING": ResidualPromptTuningConfig,
     "BITFIT": BitFitConfig,
+    "XPROMPT_TUNING": XPromptEmbedding
 }
 
 PEFT_TYPE_TO_TUNER_MAPPING = {

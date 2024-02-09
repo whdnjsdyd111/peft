@@ -7,7 +7,8 @@ from typing import Optional, Union, List
 from transformers import HfArgumentParser, TrainingArguments, Seq2SeqTrainingArguments
 from peft import (
     PeftType, 
-    PromptTuningInit, 
+    PromptTuningInit,
+    XPromptTuningInit, 
     LoftQConfig, 
     PromptEncoderReparameterizationType, 
     ResidualPromptTuningInit,
@@ -180,6 +181,10 @@ class ModelArguments:
 
 @dataclass
 class DynamicTrainingArguments(Seq2SeqTrainingArguments):
+    eval_training: bool = field(
+        default=False,
+        metadata={"help": "Whether to evaluate the train dataset."}
+    )
     predict_with_generate: bool = field(
         default=True,
         metadata={"help": "Whether to use generate to get the predictions."}
@@ -319,6 +324,51 @@ class DynamicPeftArguments:
             "the final layer `classifier/score` are randomly initialized and as such need to be trainable and saved."
         },
     ),
+    
+    # XPromptTuningConfig
+    xprompt_tuning_init: Union[XPromptTuningInit, str] = field(
+        default=XPromptTuningInit.RANDOM,
+        metadata={"help": "How to initialize the prompt tuning parameters"},
+    )
+    xprompt_tuning_init_text: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "The text to use for prompt tuning initialization. Only used if prompt_tuning_init is `TEXT`"
+        },
+    )
+    tokenizer_name_or_path: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "The tokenizer to use for prompt tuning initialization. Only used if prompt_tuning_init is `TEXT`"
+        },
+    )
+    tokenizer_kwargs: Optional[dict] = field(
+        default=None,
+        metadata={
+            "help": (
+                "The keyword arguments to pass to `AutoTokenizer.from_pretrained`. Only used if prompt_tuning_init is "
+                "`TEXT`"
+            ),
+        },
+    )
+    prune_step: int = field(
+        default=15000,
+        metadata={
+            "help": "Pruning is performed at this step, followed by rewinding in the remaining step"
+        }
+    )
+    token_pieces: int = field(
+        default=16,
+        metadata={"help": "Separate the embedding vector in k pieces"}
+    )
+    token_ratio: float = field(
+        default=0.5,
+        metadata={"help": "The ratio to prune for soft prompt tokens"}
+    )
+    piece_ratio: float = field(
+        default=0.5,
+        metadata={"help": "The ratio to prune for soft prompt piece"}
+    )
 
 
 def get_args():
