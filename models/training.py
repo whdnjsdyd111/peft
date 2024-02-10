@@ -356,9 +356,13 @@ class TrainCallback(TrainerCallback):
             self._trainer.evaluate(eval_dataset=self._trainer.train_dataset, metric_key_prefix="train")
             self.is_eval_training = True
             return control_copy
+
+        if control.should_evaluate:
+            return
         
         if hasattr(self, "xprompt"):
             self.xprompt.estimate_token_importance(self._trainer, state.global_step)
+            self.xprompt.estimate_piece_importance(self._trainer, state.global_step)
     
     def on_evaluate(self, args, state, control, **kwargs):
         if self.is_eval_training:
@@ -367,6 +371,7 @@ class TrainCallback(TrainerCallback):
         
         if not self.is_eval_training and hasattr(self, "xprompt"):
             self.xprompt.estimate_token_importance(self._trainer, state.global_step)
+            self.xprompt.estimate_piece_importance(self._trainer, state.global_step)
 
     def on_predict(self, args, state, control, metrics, **kwargs):
         # Save predict result.

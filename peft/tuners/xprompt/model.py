@@ -83,7 +83,7 @@ class XPromptEmbedding(torch.nn.Module):
             self.token_prefix: set(range(total_virtual_tokens)), 
             self.piece_prefix: {
                 f"{self.token_prefix}:{token}": set(range(config.token_pieces)) 
-                for token in total_virtual_tokens
+                for token in range(total_virtual_tokens)
             }
         }
         
@@ -114,7 +114,7 @@ class XPromptEmbedding(torch.nn.Module):
     
     def forward(self, indices):
         # Just get embeddings
-        prompt_embeddings = self.embedding(indices) * self.piece_mask
+        prompt_embeddings = self.embedding(indices) * self.piece_mask.to(indices.device)
         return prompt_embeddings
 
     def batch_token_importance(self):
@@ -200,7 +200,7 @@ class XPromptEmbedding(torch.nn.Module):
         profile = self.token_profile(embed_importance)
         
         # prune the tokens
-        for desc, _ in profile[self.token_prefix]:
+        for desc, _ in profile:
             idx = int(desc.split(":")[1])
             self.to_prune[self.token_prefix].add(idx)
             self.kept_prune[self.token_prefix].remove(idx)
@@ -209,8 +209,8 @@ class XPromptEmbedding(torch.nn.Module):
             self.piece_mask[idx] = 0
         
         logger.info(f"*** {colorstr('cyan', 'bold', 'token importance scores')} to be removed ***\n"
-                    f"{list(f'{token[1].item():.5f}' for token in profile[self.token_prefix])}\n"
-                    f"{list(token for token, _ in profile[self.token_prefix])}\n")
+                    f"{list(f'{token[1].item():.5f}' for token in profile)}\n"
+                    f"{list(token for token, _ in profile)}\n")
         logger.info(f"*** {colorstr('cyan', 'bold', 'pruned')} ***\n{self.to_prune[self.token_prefix]}")
         logger.info(f"*** {colorstr('cyan', 'bold', 'kept')} ***\n{self.kept_prune[self.token_prefix]}\n")
         logger.info(f"*** {colorstr('cyan', 'bold', 'token mask')} ***\n{self.token_mask}")
@@ -270,12 +270,9 @@ class XPromptEmbedding(torch.nn.Module):
                 self.kept_prune[self.piece_prefix][token].remove(idx)
                 self.piece_mask[int(token.split(":")[1])][idx*split_size:(idx+1)*split_size] = 0
         
-        # logger.info(f"*** {colorstr('cyan', 'bold', 'piece importance scores')} to be removed ***\n"
-        #             f"{list(f'{token[1].item():.5f}' for token in profile[self.token_prefix])}\n"
-        #             f"{list(token for token, _ in profile[self.token_prefix])}\n")
-        # logger.info(f"*** {colorstr('cyan', 'bold', 'pruned')} ***\n{self.to_prune[self.token_prefix]}")
-        # logger.info(f"*** {colorstr('cyan', 'bold', 'kept')} ***\n{self.kept_prune[self.token_prefix]}\n")
-        # logger.info(f"*** {colorstr('cyan', 'bold', 'token mask')} ***\n"self.token_mask)
+        logger.info(f"*** {colorstr('cyan', 'bold', 'piece importance scores')} to be removed ***\n")
+        logger.info(f"*** {colorstr('cyan', 'bold', 'pruned')} ***\n{self.to_prune[self.piece_prefix]}")
+        logger.info(f"*** {colorstr('cyan', 'bold', 'kept')} ***\n{self.kept_prune[self.piece_prefix]}\n")
     
     def token_profile(self, importance):
         target_token_length = int(self.total_virtual_tokens * self.config.token_ratio)
