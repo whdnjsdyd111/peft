@@ -270,12 +270,12 @@ class XPromptEmbedding(torch.nn.Module):
                 self.kept_prune[self.piece_prefix][token].remove(idx)
                 self.piece_mask[int(token.split(":")[1])][idx*split_size:(idx+1)*split_size] = 0
         
-        logger.info(f"*** {colorstr('cyan', 'bold', 'piece importance scores')} to be removed ***\n"
-                    f"{list(f'{token[1].item():.5f}' for token in profile[self.token_prefix])}\n"
-                    f"{list(token for token, _ in profile[self.token_prefix])}\n")
-        logger.info(f"*** {colorstr('cyan', 'bold', 'pruned')} ***\n{self.to_prune[self.token_prefix]}")
-        logger.info(f"*** {colorstr('cyan', 'bold', 'kept')} ***\n{self.kept_prune[self.token_prefix]}\n")
-        logger.info(f"*** {colorstr('cyan', 'bold', 'token mask')} ***\n"self.token_mask)
+        # logger.info(f"*** {colorstr('cyan', 'bold', 'piece importance scores')} to be removed ***\n"
+        #             f"{list(f'{token[1].item():.5f}' for token in profile[self.token_prefix])}\n"
+        #             f"{list(token for token, _ in profile[self.token_prefix])}\n")
+        # logger.info(f"*** {colorstr('cyan', 'bold', 'pruned')} ***\n{self.to_prune[self.token_prefix]}")
+        # logger.info(f"*** {colorstr('cyan', 'bold', 'kept')} ***\n{self.kept_prune[self.token_prefix]}\n")
+        # logger.info(f"*** {colorstr('cyan', 'bold', 'token mask')} ***\n"self.token_mask)
     
     def token_profile(self, importance):
         target_token_length = int(self.total_virtual_tokens * self.config.token_ratio)
