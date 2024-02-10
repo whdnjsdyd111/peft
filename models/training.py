@@ -334,7 +334,7 @@ class TrainCallback(TrainerCallback):
     def  __init__(self, trainer) -> None:
         super().__init__()
         self._trainer = trainer
-        self.is_evaluation_training = False
+        self.is_eval_training = False
         
         if (isinstance(trainer.model, PeftModel) and 
             isinstance(trainer.model.active_peft_config, XPromptTuningConfig)):
@@ -344,7 +344,7 @@ class TrainCallback(TrainerCallback):
         if control.should_evaluate and self._trainer.args.eval_training:
             control_copy = deepcopy(control)
             self._trainer.evaluate(eval_dataset=self._trainer.train_dataset, metric_key_prefix="train")
-            self.is_evaluation_training = True
+            self.is_eval_training = True
             return control_copy
 
         if hasattr(self, "xprompt"):
@@ -354,18 +354,18 @@ class TrainCallback(TrainerCallback):
         if control.should_evaluate and self._trainer.args.eval_training:
             control_copy = deepcopy(control)
             self._trainer.evaluate(eval_dataset=self._trainer.train_dataset, metric_key_prefix="train")
-            self.is_evaluation_training = True
+            self.is_eval_training = True
             return control_copy
         
         if hasattr(self, "xprompt"):
             self.xprompt.estimate_token_importance(self._trainer, state.global_step)
     
     def on_evaluate(self, args, state, control, **kwargs):
-        if self.is_evaluation_training:
-            self.is_evaluation_training = False
+        if self.is_eval_training:
+            self.is_eval_training = False
             return
         
-        if not self.is_training_eval and hasattr(self, "xprompt"):
+        if not self.is_eval_training and hasattr(self, "xprompt"):
             self.xprompt.estimate_token_importance(self._trainer, state.global_step)
 
     def on_predict(self, args, state, control, metrics, **kwargs):
