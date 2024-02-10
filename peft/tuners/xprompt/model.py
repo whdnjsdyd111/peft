@@ -213,7 +213,7 @@ class XPromptEmbedding(torch.nn.Module):
                     f"{list(token for token, _ in profile[self.token_prefix])}\n")
         logger.info(f"*** {colorstr('cyan', 'bold', 'pruned')} ***\n{self.to_prune[self.token_prefix]}")
         logger.info(f"*** {colorstr('cyan', 'bold', 'kept')} ***\n{self.kept_prune[self.token_prefix]}\n")
-        logger.info(f"*** {colorstr('cyan', 'bold', 'token mask')} ***\n"self.token_mask)
+        logger.info(f"*** {colorstr('cyan', 'bold', 'token mask')} ***\n{self.token_mask}")
     
     def estimate_piece_importance(self, trainer, current_step):
         """Train the model for one epoch to prune the negative token"""
