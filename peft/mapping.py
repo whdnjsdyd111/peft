@@ -67,7 +67,7 @@ PEFT_TYPE_TO_CONFIG_MAPPING: Dict[str, PeftConfig] = {
     "ADALORA": AdaLoraConfig,
     "RESIDUAL_PROMPT_TUNING": ResidualPromptTuningConfig,
     "BITFIT": BitFitConfig,
-    "XPROMPT_TUNING": XPromptEmbedding
+    "XPROMPT_TUNING": XPromptTuningConfig,
 }
 
 PEFT_TYPE_TO_TUNER_MAPPING = {
