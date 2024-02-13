@@ -40,7 +40,7 @@ from .tuners import (
     ResidualPromptTuningConfig,
     BitFitConfig,
     BitFitModel,
-    XPromptEmbedding
+    XPromptTuningConfig,
 )
 from .utils import _prepare_prompt_learning_config
 
