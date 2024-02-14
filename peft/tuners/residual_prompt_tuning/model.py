@@ -147,7 +147,7 @@ class ResidualPromptEmbedding(torch.nn.Module):
         self.total_virtual_tokens = config.num_virtual_tokens * config.num_transformer_submodules
         self.embedding = torch.nn.Embedding(self.total_virtual_tokens, config.token_dim)
         
-        if config.residual_prompt_tuning_init == ResidualPromptTuningInit.TEXT not config.inference_mode:
+        if config.residual_prompt_tuning_init == ResidualPromptTuningInit.TEXT and not config.inference_mode:
             from transformers import AutoTokenizer
             
             tokenizer_kwargs = config.tokenizer_kwargs or {}
