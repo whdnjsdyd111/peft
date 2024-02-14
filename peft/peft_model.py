@@ -461,6 +461,9 @@ class PeftModel(PushToHubMixin, torch.nn.Module):
             prompt_tokens = prompt_tokens[:, : self.peft_config[adapter_name].num_virtual_tokens]
 
         prompt_embeddings = prompt_encoder(prompt_tokens)
+        
+        if self.peft_config[adapter_name].peft_type == PeftType.RESIDUAL_PROMPT_TUNING:
+            prompt_embeddings = prompt_embeddings.unsqueeze(0).expand(1, -1, -1)
 
         return prompt_embeddings[0].detach().cpu()
     
