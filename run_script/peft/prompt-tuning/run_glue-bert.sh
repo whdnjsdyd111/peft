@@ -4,7 +4,7 @@ export CUDA_VISIBLE_DEVICES=0
 export PEFT_TYPE=PROMPT_TUNING
 
 seed=42
-lr="1e-6 5e-5 1e-5 5e-4 1e-4"
+lrs="1e-6 5e-5 1e-5 5e-4 1e-4"
 max_seq_length=256
 bs=32
 max_steps=30000
