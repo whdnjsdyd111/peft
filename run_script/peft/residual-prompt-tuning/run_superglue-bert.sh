@@ -9,7 +9,7 @@ max_seq_length=256
 bs=32
 max_steps=30000
 weight_decay=1e-5
-virtual_tokens_list="20"
+virtual_tokens_list="10"
 
 for MODEL_NAME in $MODELS_NAME; do
   for DATASET_NAME in boolq cb rte wic wsc copa record multirc; do
