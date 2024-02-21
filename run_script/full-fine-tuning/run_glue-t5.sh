@@ -5,7 +5,7 @@ export CUDA_VISIBLE_DEVICES=0
 max_seq_length=256
 bs=32
 max_steps=30000
-lrs="5e-1 4e-1 3e-1"
+lrs="1e-5 1e-4 1e-3"
 weight_decay=0.01
 seed=42
 
