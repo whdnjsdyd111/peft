@@ -3,7 +3,7 @@ export TASK_NAME=glue
 export CUDA_VISIBLE_DEVICES=0
 
 max_seq_length=256
-bs=32
+bs=16
 max_steps=30000
 lrs="1e-5 1e-4 1e-3"
 weight_decay=0.01
