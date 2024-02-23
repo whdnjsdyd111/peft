@@ -3,6 +3,7 @@ import evaluate
 import numpy as np
 import logging
 import functools
+import collections
 
 from tasks.abc_dataset import AbstractDataset
 from utils.general import colorstr, colorformat, emojis
@@ -230,10 +231,10 @@ class SuperGlueDataset(AbstractDataset):
                 inputs = self.name + " " + inputs
             
             # duplicates the samples based on number of answers.
-            num_answers = len(ex["answer"])
+            num_answers = len(ex["answers"])
             num_duplicates = np.maximum(1, num_answers)
             new_batch["source"].extend([inputs] * num_duplicates)
-            new_batch["target"].extend(ex["answers"] if num_answers > 0 else self.tokenizer.unk_token)
+            new_batch["target"].extend(ex["answers"] if num_answers > 0 else [self.tokenizer.unk_token])
             new_batch["task"].extend([self.name] * num_duplicates)
             new_batch["extra_fields"].extend([{"answers": ex["answers"]}] * num_duplicates)
         
