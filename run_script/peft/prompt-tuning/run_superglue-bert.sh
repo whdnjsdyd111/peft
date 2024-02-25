@@ -9,6 +9,7 @@ max_steps=30000
 lrs="1e-5 5e-5 1e-4"
 weight_decay=0.01
 seed=42
+init_type=RANDOM_UNIFORM
 virtual_tokens_list=10
 
 for MODEL_NAME in $MODELS_NAME; do
@@ -40,6 +41,7 @@ for MODEL_NAME in $MODELS_NAME; do
         --load_best_model_at_end \
         --save_total_limit 1 \
         --peft_type $PEFT_TYPE \
+        --init_type $init_type \
         --num_virtual_tokens $virtual_tokens_list;
     done;
   done;
