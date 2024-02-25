@@ -4,15 +4,16 @@ export CUDA_VISIBLE_DEVICES=0
 export PEFT_TYPE=P_TUNING
 
 max_seq_length=256
-bs=32
+bs=16
 max_steps=30000
-lrs="5e-1 5e-5 4e-1"
+lrs="1e-5 5e-5 1e-4"
 weight_decay=0.01
 seed=42
-virtual_tokens=10
+init_type=RANDOM_UNIFORM
+virtual_tokens_list=10
 
 for MODEL_NAME in $MODELS_NAME; do
-  for DATASET_NAME in cola mrpc rte stsb wnli mnli qnli qqp sst2; do
+  for DATASET_NAME in cola mrpc rte stsb mnli qnli qqp sst2; do
     for lr in $lrs; do
       python run.py \
         --model_name_or_path $MODEL_NAME \
@@ -39,7 +40,8 @@ for MODEL_NAME in $MODELS_NAME; do
         --load_best_model_at_end \
         --save_total_limit 1 \
         --peft_type $PEFT_TYPE \
-        --num_virtual_tokens $virtual_tokens;
+        --init_type $init_type \
+        --num_virtual_tokens $virtual_tokens_list;
     done;
   done;
 done;

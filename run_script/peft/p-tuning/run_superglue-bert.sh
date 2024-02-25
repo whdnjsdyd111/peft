@@ -1,4 +1,4 @@
-export MODELS_NAME="t5-base t5-large"
+export MODELS_NAME="bert-base-uncased bert-large-uncased"
 export TASK_NAME=super_glue
 export CUDA_VISIBLE_DEVICES=0
 export PEFT_TYPE=P_TUNING
@@ -6,7 +6,7 @@ export PEFT_TYPE=P_TUNING
 max_seq_length=256
 bs=16
 max_steps=30000
-lrs="3e-3 3e-2 3e-1"
+lrs="1e-5 5e-5 1e-4"
 weight_decay=0.01
 seed=42
 init_type=RANDOM_UNIFORM
