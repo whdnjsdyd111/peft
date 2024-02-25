@@ -17,7 +17,7 @@ from .lora import LoraConfig, LoraModel, LoftQConfig
 from .adalora import AdaLoraConfig, AdaLoraModel
 from .p_tuning import PromptEncoder, PromptEncoderConfig, PromptEncoderReparameterizationType
 from .prefix_tuning import PrefixEncoder, PrefixTuningConfig
-from .prompt_tuning import PromptEmbedding, PromptTuningConfig, PromptTuningInit
-from .residual_prompt_tuning import ResidualPromptTuningConfig, ResidualPromptTuningInit, ResidualPromptTuningReparameterizationType, ResidualPromptEmbedding, ResidualMLP
+from .prompt_tuning import PromptEmbedding, PromptTuningConfig
+from .residual_prompt_tuning import ResidualPromptTuningConfig, ResidualPromptTuningReparameterizationType, ResidualPromptEmbedding, ResidualMLP
 from .bitfit import BitFitConfig, BitFitModel
-from .xprompt_tuning import XPromptEmbedding, XPromptTuningConfig, XPromptTuningInit
+from .xprompt_tuning import XPromptEmbedding, XPromptTuningConfig
