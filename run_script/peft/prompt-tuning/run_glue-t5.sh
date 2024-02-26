@@ -13,7 +13,7 @@ init_type=RANDOM_UNIFORM
 virtual_token=10
 
 for MODEL_NAME in $MODELS_NAME; do
-  for DATASET_NAME in cola; do
+  for DATASET_NAME in cola mrpc rte stsb mnli qnli qqp sst2; do
     for lr in $lrs; do
       python run.py \
         --model_name_or_path $MODEL_NAME \
