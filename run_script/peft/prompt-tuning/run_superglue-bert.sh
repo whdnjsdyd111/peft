@@ -10,7 +10,7 @@ lrs="1e-5 5e-5 1e-4"
 weight_decay=0.01
 seed=42
 init_type=RANDOM_UNIFORM
-virtual_tokens_list=10
+virtual_token=10
 
 for MODEL_NAME in $MODELS_NAME; do
   for DATASET_NAME in boolq cb rte wic wsc multirc; do
@@ -18,7 +18,7 @@ for MODEL_NAME in $MODELS_NAME; do
       if test "$DATASET_NAME" = "multirc"; then max_seq_length=348; fi
       python run.py \
         --model_name_or_path $MODEL_NAME \
-        --run_name $TASK_NAME-$DATASET_NAME-$MODEL_NAME-$lr-$seed-$PEFT_TYPE-$var-token \
+        --run_name $TASK_NAME-$DATASET_NAME-$MODEL_NAME-$lr-$seed-$PEFT_TYPE-$virtual_token-token \
         --task_name $TASK_NAME \
         --dataset_name $DATASET_NAME \
         --do_train \
@@ -27,7 +27,7 @@ for MODEL_NAME in $MODELS_NAME; do
         --per_device_train_batch_size $bs \
         --per_device_eval_batch_size $bs \
         --max_seq_length $max_seq_length \
-        --output_dir checkpoints/PEFT/$PEFT_TYPE/$MODEL_NAME/$TASK_NAME-$DATASET_NAME-$lr-$seed-$var-token/ \
+        --output_dir checkpoints/PEFT/$PEFT_TYPE/$MODEL_NAME/$TASK_NAME-$DATASET_NAME-$lr-$seed-$virtual_token-token/ \
         --overwrite_output_dir \
         --seed $seed \
         --learning_rate $lr \
@@ -42,7 +42,7 @@ for MODEL_NAME in $MODELS_NAME; do
         --save_total_limit 1 \
         --peft_type $PEFT_TYPE \
         --init_type $init_type \
-        --num_virtual_tokens $virtual_tokens_list;
+        --num_virtual_tokens $virtual_token;
     done;
   done;
 done;

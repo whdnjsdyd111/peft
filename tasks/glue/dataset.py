@@ -20,7 +20,7 @@ task_to_keys = {
 }
 
 task_to_metrics = {
-    "cola": {"name": ["matthews_correlation"], "metrics": [metrics.matthews_corrcoef]},
+    "cola": {"name": ["accuracy", "matthews_correlation"], "metrics": [metrics.accuracy, metrics.matthews_corrcoef]},
     "mnli": {"name": ["accuracy"], "metrics": [metrics.accuracy]},
     "mnli_mismatched": {"name": ["accuracy"], "metrics": [metrics.accuracy]},
     "mnli_matched": {"name": ["accuracy"], "metrics": [metrics.accuracy]},
