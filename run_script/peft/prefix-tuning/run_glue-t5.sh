@@ -1,7 +1,7 @@
 export MODELS_NAME="t5-base t5-large"
 export TASK_NAME=glue
 export CUDA_VISIBLE_DEVICES=0
-export PEFT_TYPE=RESIDUAL_PROMPT_TUNING
+export PEFT_TYPE=PREFIX_TUNING
 
 max_seq_length=256
 bs=16

@@ -1,7 +1,7 @@
 export MODELS_NAME="t5-base t5-large"
-export TASK_NAME=glue
+export TASK_NAME=super_glue
 export CUDA_VISIBLE_DEVICES=0
-export PEFT_TYPE=RESIDUAL_PROMPT_TUNING
+export PEFT_TYPE=PREFIX_TUNING
 
 max_seq_length=256
 bs=16
@@ -13,8 +13,9 @@ init_type=RANDOM_UNIFORM
 virtual_token=10
 
 for MODEL_NAME in $MODELS_NAME; do
-  for DATASET_NAME in cola mrpc rte stsb mnli qnli qqp sst2; do
+  for DATASET_NAME in boolq cb rte wic wsc multirc; do
     for lr in $lrs; do
+      if test "$DATASET_NAME" = "multirc"; then max_seq_length=348; fi
       python run.py \
         --model_name_or_path $MODEL_NAME \
         --run_name $TASK_NAME-$DATASET_NAME-$MODEL_NAME-$lr-$seed-$PEFT_TYPE-$virtual_token-token \

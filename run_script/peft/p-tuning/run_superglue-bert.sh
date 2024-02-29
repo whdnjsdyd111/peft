@@ -6,14 +6,14 @@ export PEFT_TYPE=P_TUNING
 max_seq_length=256
 bs=16
 max_steps=30000
-lrs="1e-4 5e-4 1e-3"
+lrs="1e-5 5e-5 1e-4 5e-4 1e-3"
 weight_decay=0.01
 seed=42
 init_type=RANDOM_UNIFORM
 virtual_token=10
 
 for MODEL_NAME in $MODELS_NAME; do
-  for DATASET_NAME in boolq cb rte wic wsc multirc; do
+  for DATASET_NAME in boolq cb rte wic wsc copa record multirc; do
     for lr in $lrs; do
       if test "$DATASET_NAME" = "multirc"; then max_seq_length=348; fi
       python run.py \
