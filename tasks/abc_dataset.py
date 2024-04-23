@@ -144,7 +144,11 @@ class AbstractDataset(ABC):
         # set as the test set.
         elif split_validation_test and is_small == False and split != "test":
             dataset = self.tokenized_dataset[split_key["train"]]
-            indices = self.get_split_indices(split, dataset, validation_size=1000)
+            if len(dataset) > 100000:
+                validation_size = 10000
+            else:
+                validation_size = 1000
+            indices = self.get_split_indices(split, dataset, validation_size=validation_size)
             dataset = self.subsample(dataset, n_obs, indices)
         elif split_validation_test and is_small == False and split == "test":
             dataset = self.tokenized_dataset[split_key["validation"]]
