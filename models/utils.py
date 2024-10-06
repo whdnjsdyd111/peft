@@ -37,6 +37,9 @@ from peft import (
     ResidualPromptTuningConfig,
     BitFitConfig,
     XPromptTuningConfig,
+    RPromptTuningConfig,
+    CPromptTuningConfig,
+    EPromptTuningConfig,
 )
 
 AUTO_MODEL = {
@@ -57,6 +60,9 @@ AUTO_PEFT = {
     PeftType.RESIDUAL_PROMPT_TUNING: ResidualPromptTuningConfig,
     PeftType.BITFIT: BitFitConfig,
     PeftType.XPROMPT_TUNING: XPromptTuningConfig,
+    PeftType.RPROMPT_TUNING: RPromptTuningConfig,
+    PeftType.CPROMPT_TUNING: CPromptTuningConfig,
+    PeftType.EPROMPT_TUNING: EPromptTuningConfig,
 }
 
 logger = logging.getLogger(__name__)
@@ -135,14 +141,17 @@ def get_trainer(model_args, data_args, training_args, peft_args, Dataset):
     elif any(x in model_args.model_name_or_path for x in ["t5"]):
         logger.info(f"Loading seq2seq model from {model_args.model_name_or_path}.")
         task_type = TaskType.SEQ_2_SEQ_LM
-    elif any(x in model_args.model_name_or_path for x in ["gpt"]): # TODO : add 라마 추가하기
+    elif any(x in model_args.model_name_or_path for x in ["gpt", "bloom"]): # TODO : add 라마 추가하기
         logger.info(f"Loading decoder model from {model_args.model_name_or_path}.")
         task_type = TaskType.CAUSAL_LM
     else:
         raise NotImplementedError
     
     model = get_model(model_args, peft_args, task_type, tokenizer, dataset)
-    
+
+    if model.config.pad_token_id is None:
+        model.config.pad_token_id = tokenizer.pad_token_id  # TODO: check if this is correct
+
     if task_type == TaskType.SEQ_CLS:
         trainer = BaseTrainer(
             model=model,
